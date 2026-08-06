@@ -2,7 +2,7 @@
 
 A free, timed, unofficial practice exam for the **Claude Certified Developer – Foundations (CCDV-F)** certification. Pure static HTML/CSS/JS — no build step, no backend, no accounts. Deploy it to GitHub Pages and it just works.
 
-**[Live demo →](https://erross.github.io/Claude_CCDV_F_Pracitce/)** *(live once you enable Pages — see below)*
+**[Live demo →](https://erross.github.io/Claude_CCDV_F_Practice/)** *(live once you enable Pages — see below)*
 
 ## What it does
 
