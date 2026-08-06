@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CCDV-F Practice Exam</title>
+<meta name="description" content="A free, timed, unofficial practice exam for the Claude Certified Developer – Foundations (CCDV-F) certification.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ============ SPLASH SCREEN ============ -->
+<main id="splash-screen" class="screen">
+  <div class="brand-row">
+    <span class="brand-mark">CCDV-F//</span>
+    <span class="brand-tag">unofficial practice exam</span>
+  </div>
+  <h1 class="hero-title">Practice for the Claude Certified<br>Developer – Foundations exam<span class="cursor">&nbsp;</span></h1>
+  <p class="hero-sub">
+    60 questions, drawn at random from a bank of 200+, weighted to match the official
+    domain blueprint. Timed to 120 minutes, with a question navigator, flag-for-review,
+    and a strikeout tool for eliminating options — built to feel like the real
+    Pearson VUE testing experience.
+  </p>
+
+  <div class="stat-row">
+    <div class="stat-chip"><span class="num">60</span><span class="lbl">Questions</span></div>
+    <div class="stat-chip"><span class="num">120<span style="font-size:.9rem">m</span></span><span class="lbl">Time limit</span></div>
+    <div class="stat-chip"><span class="num">720</span><span class="lbl">Approx. pass score</span></div>
+    <div class="stat-chip"><span class="num">200+</span><span class="lbl">Questions in bank</span></div>
+  </div>
+
+  <p class="section-label">Domain weighting (mirrors the official blueprint)</p>
+  <div id="weight-bar" class="weight-bar"></div>
+  <div id="weight-legend" class="weight-legend"></div>
+
+  <div class="feature-grid">
+    <div class="feature-card">
+      <div class="ft">Weighted random draw</div>
+      <div class="fd">Every attempt pulls a fresh 60-question set, sampled per domain in proportion to its exam weight.</div>
+    </div>
+    <div class="feature-card">
+      <div class="ft">Single &amp; multi-select</div>
+      <div class="fd">Questions render as radio or checkbox groups depending on how many answers are required, same as the real exam.</div>
+    </div>
+    <div class="feature-card">
+      <div class="ft">Strikeout &amp; flagging</div>
+      <div class="fd">Cross out options you've ruled out and flag questions to revisit, without losing your progress.</div>
+    </div>
+    <div class="feature-card">
+      <div class="ft">Domain breakdown</div>
+      <div class="fd">Your results page scores each of the 8 domains separately, so you know exactly where to restudy.</div>
+    </div>
+  </div>
+
+  <div class="cta-row">
+    <button id="start-btn" class="btn btn-primary">Start practice exam →</button>
+    <span style="color:var(--text-faint); font-size:.85rem;">No sign-up. Nothing leaves your browser.</span>
+  </div>
+
+  <p class="disclaimer">
+    This is an independent, unofficial study tool created for practice purposes. It is not
+    affiliated with, endorsed by, or sourced from Anthropic's official exam question bank.
+    Questions are original content written to mirror the publicly documented CCDV-F blueprint
+    (domains, weights, and topic areas) — treat this as tradeoff/judgment practice, not a leak
+    of real exam items. Always confirm current exam details on Anthropic's own certification
+    pages before registering or scheduling.
+  </p>
+</main>
+
+<!-- ============ EXAM SCREEN ============ -->
+<div id="exam-screen" class="screen exam-shell hidden">
+  <div class="exam-topbar">
+    <span class="title">CCDV-F//</span>
+    <span id="progress-txt" class="progress-txt">Question 1 / 60</span>
+    <span id="timer" class="timer">120:00</span>
+    <button id="submit-btn" class="btn btn-sm">Submit exam</button>
+  </div>
+
+  <div class="exam-body">
+    <nav class="nav-panel" aria-label="Question navigator">
+      <h3>Questions</h3>
+      <div id="nav-grid" class="nav-grid"></div>
+      <div class="nav-legend">
+        <span><i style="background:var(--accent-dim); border-color:var(--accent);"></i>Answered</span>
+        <span><i style="background:var(--panel-2);"></i>Unanswered</span>
+        <span><i style="background:var(--accent-2); border-radius:50%;"></i>Flagged</span>
+      </div>
+    </nav>
+
+    <section class="q-card">
+      <div class="q-meta">
+        <span id="domain-pill" class="domain-pill">Domain</span>
+        <span id="type-pill" class="type-pill">Select one</span>
+        <button id="flag-btn" class="flag-btn">☆ Flag for review</button>
+      </div>
+      <p id="q-text" class="q-text"></p>
+      <div id="options" class="options"></div>
+      <div class="q-nav-buttons">
+        <button id="prev-btn" class="btn btn-ghost">← Prev</button>
+        <div class="right-group">
+          <button id="next-btn" class="btn btn-primary">Next →</button>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- ============ RESULTS SCREEN ============ -->
+<main id="results-screen" class="screen hidden">
+  <div class="brand-row">
+    <span class="brand-mark">CCDV-F//</span>
+    <span class="brand-tag">results</span>
+  </div>
+
+  <div class="score-hero">
+    <div>
+      <div id="score-pct" class="score-big">0%</div>
+      <div id="score-detail" class="score-sub"></div>
+    </div>
+    <span id="pass-badge" class="badge"></span>
+  </div>
+
+  <p class="section-label">Score by domain</p>
+  <table class="domain-table">
+    <thead>
+      <tr><th>Domain</th><th>Correct</th><th style="width:160px">Progress</th><th style="text-align:right">%</th></tr>
+    </thead>
+    <tbody id="domain-table-body"></tbody>
+  </table>
+
+  <div class="results-actions">
+    <button id="retake-btn" class="btn btn-primary">Take another practice exam →</button>
+  </div>
+
+  <p class="section-label">Review every question</p>
+  <div id="review-list"></div>
+
+  <div class="results-actions">
+    <button id="retake-btn-2" class="btn btn-primary">Take another practice exam →</button>
+  </div>
+
+  <p class="disclaimer">
+    The scaled score shown above is a rough linear approximation for practice purposes only.
+    Anthropic's real exam is criterion-referenced against a formal standard-setting study, so
+    your actual scaled score will not map exactly to a simple percent-correct calculation.
+  </p>
+</main>
+
+<script src="questions.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
