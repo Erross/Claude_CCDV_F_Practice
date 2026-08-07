@@ -192,7 +192,10 @@
       <div id="score-detail" class="score-sub"></div>
       <div id="score-compare" class="score-compare hidden"></div>
     </div>
-    <span id="pass-badge" class="badge"></span>
+    <div class="badge-stack">
+      <span id="pass-badge" class="badge"></span>
+      <span class="badge-caveat">Approximate. The real exam is criterion-referenced, not percent-correct.</span>
+    </div>
   </div>
 
   <h2 class="section-label">Score by domain</h2>
@@ -214,6 +217,10 @@
     <button type="button" class="filter-btn" data-filter="incorrect" aria-pressed="false">Incorrect</button>
     <button type="button" class="filter-btn" data-filter="flagged" aria-pressed="false">Flagged</button>
     <button type="button" class="filter-btn" data-filter="unanswered" aria-pressed="false">Unanswered</button>
+    <label class="sr-only" for="review-domain">Filter by domain</label>
+    <select id="review-domain" class="review-domain"></select>
+    <button id="expand-all" type="button" class="filter-btn">Expand all</button>
+    <button id="collapse-all" type="button" class="filter-btn">Collapse all</button>
     <span id="review-count" class="review-count"></span>
   </div>
   <div id="review-list"></div>

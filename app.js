@@ -16,7 +16,8 @@
     startedAt: null,
     timerId: null,
     submitted: false,
-    reviewFilter: "all"
+    reviewFilter: "all",
+    reviewDomain: "all"
   };
 
   // ---------- small helpers ----------
@@ -27,6 +28,21 @@
   function $(id){ return document.getElementById(id); }
   function show(id){ $(id).classList.remove("hidden"); }
   function hide(id){ $(id).classList.add("hidden"); }
+
+  var SCREENS = ["course-screen","splash-screen","exam-screen","presubmit-screen","results-screen"];
+
+  // Every screen transition goes through here. Focus was previously left on whichever
+  // control was clicked — which then got hidden or rebuilt, dropping the keyboard user
+  // back to <body>. Requiring a focus target makes that omission impossible.
+  function showScreen(screenId, focusId){
+    SCREENS.forEach(function(id){
+      if (id === screenId) $(id).classList.remove("hidden");
+      else $(id).classList.add("hidden");
+    });
+    var el = $(focusId);
+    if (el) el.focus();
+    window.scrollTo(0,0);
+  }
   function escapeHtml(str){ var d = document.createElement("div"); d.textContent = str; return d.innerHTML; }
   function domainName(id){
     var d = state.course.domains.find(function(x){ return x.id === id; });
@@ -248,9 +264,7 @@
     state.course = window.getCourse(code);
     indexScenarios();
     renderSplash();
-    hide("course-screen"); show("splash-screen");
-    $("splash-title").focus();
-    window.scrollTo(0,0);
+    showScreen("splash-screen", "splash-title");
   }
 
   function renderSplash(){
@@ -374,11 +388,10 @@
 
   function enterExam(){
     $("exam-code").textContent = state.course.code + "//";
-    hide("course-screen"); hide("splash-screen");
-    hide("results-screen"); hide("presubmit-screen");
-    show("exam-screen");
+    showScreen("exam-screen", "q-text");
     renderNavGrid();
     renderQuestion();
+    $("q-text").focus();
     startTimer();
     window.addEventListener("beforeunload", beforeUnloadHandler);
   }
@@ -444,9 +457,9 @@
       if (q.userAnswer.length) cell.classList.add("answered");
       if (q.flagged) cell.classList.add("flagged");
       if (i === state.current) cell.classList.add("current");
-      cell.addEventListener("click", function(){ goTo(i); });
+      cell.addEventListener("click", function(){ goTo(i, { fromGrid: true }); });
       cell.addEventListener("keydown", function(ev){
-        var cols = 6, next = null;
+        var cols = navColumns(), next = null;
         if (ev.key === "ArrowRight") next = i + 1;
         else if (ev.key === "ArrowLeft") next = i - 1;
         else if (ev.key === "ArrowDown") next = i + cols;
@@ -456,7 +469,7 @@
         if (next === null) return;
         ev.preventDefault();
         next = Math.max(0, Math.min(state.examQuestions.length - 1, next));
-        goTo(next);
+        goTo(next);   // arrow keys keep focus in the grid for continued navigation
         var cells = grid.querySelectorAll(".nav-cell");
         if (cells[next]) cells[next].focus();
       });
@@ -464,10 +477,32 @@
     });
   }
 
-  function goTo(i){
+  function navColumns(){
+    // Must track the CSS breakpoints, or Arrow Up/Down moves diagonally.
+    var w = window.innerWidth || 1024;
+    if (w <= 620) return 6;
+    if (w <= 820) return 8;
+    return 6;
+  }
+
+  function closeMobileNav(){
+    var panel = $("nav-panel");
+    if (!panel.classList.contains("open")) return;
+    panel.classList.remove("open");
+    $("nav-toggle").setAttribute("aria-expanded", "false");
+  }
+
+  // fromGrid: the grid is rebuilt on every render, so the focused cell is destroyed.
+  // Move focus somewhere stable rather than letting it fall back to <body>.
+  function goTo(i, opts){
+    opts = opts || {};
     state.current = i;
     renderQuestion();
     saveAttempt();
+    if (opts.fromGrid){
+      closeMobileNav();
+      $("q-text").focus();
+    }
   }
 
   // ---------- question ----------
@@ -475,7 +510,10 @@
     var q = state.examQuestions[state.current];
     $("progress-txt").textContent = "Question " + (state.current+1) + " / " + state.examQuestions.length;
     $("domain-pill").textContent = domainName(q.domain);
-    $("type-pill").textContent = q.type === "m" ? "Select all that apply" : "Select one";
+    var howMany = q.type === "m"
+      ? "Select " + q.correct.length + " answers"
+      : "Select one answer";
+    $("type-pill").textContent = howMany;
 
     var scWrap = $("scenario-panel");
     if (q.scenario && state.scenarioById[q.scenario]){
@@ -487,8 +525,7 @@
 
     $("q-text").textContent = q.question;
     $("q-legend").textContent =
-      "Question " + (state.current+1) + " of " + state.examQuestions.length + ". " +
-      (q.type === "m" ? "Select all that apply." : "Select one answer.");
+      "Question " + (state.current+1) + " of " + state.examQuestions.length + ". " + howMany + ".";
 
     var flagBtn = $("flag-btn");
     flagBtn.classList.toggle("active", q.flagged);
@@ -509,7 +546,12 @@
       input.id = inputId;
       input.className = "option-input";
       input.checked = q.userAnswer.indexOf(idx) !== -1;
-      input.addEventListener("change", function(){ toggleAnswer(q, idx); });
+      input.addEventListener("change", function(){
+        // Choosing an option contradicts having ruled it out; clear the strikeout.
+        if (input.checked && q.struck[idx]) delete q.struck[idx];
+        toggleAnswer(q, idx);
+        renderQuestion();
+      });
 
       var label = document.createElement("label");
       label.className = "option-label";
@@ -523,10 +565,14 @@
       strike.setAttribute("aria-label", "Rule out option: " + optText);
       strike.textContent = "S̶";
       strike.addEventListener("click", function(){
-        q.struck[idx] = !q.struck[idx];
-        row.classList.toggle("struck", !!q.struck[idx]);
-        strike.classList.toggle("active", !!q.struck[idx]);
-        strike.setAttribute("aria-pressed", q.struck[idx] ? "true" : "false");
+        var nowStruck = !q.struck[idx];
+        if (nowStruck) q.struck[idx] = true; else delete q.struck[idx];
+        // Ruling an option out contradicts having selected it; drop the selection.
+        if (nowStruck){
+          var at = q.userAnswer.indexOf(idx);
+          if (at !== -1) q.userAnswer.splice(at, 1);
+        }
+        renderQuestion();
         saveAttempt();
       });
 
@@ -548,7 +594,6 @@
       var pos = q.userAnswer.indexOf(idx);
       if (pos === -1) q.userAnswer.push(idx); else q.userAnswer.splice(pos, 1);
     }
-    renderNavGrid();
     saveAttempt();
   }
 
@@ -560,9 +605,9 @@
     announce(q.flagged ? "Question flagged." : "Flag removed.");
   }
 
-  function goPrev(){ if (state.current > 0) goTo(state.current - 1); }
+  function goPrev(){ if (state.current > 0){ goTo(state.current - 1); $("q-text").focus(); } }
   function goNext(){
-    if (state.current < state.examQuestions.length - 1) goTo(state.current + 1);
+    if (state.current < state.examQuestions.length - 1){ goTo(state.current + 1); $("q-text").focus(); }
     else openPresubmit();
   }
 
@@ -595,7 +640,7 @@
         b.textContent = i + 1;
         b.setAttribute("aria-label", "Go to question " + (i+1));
         b.addEventListener("click", function(){
-          hide("presubmit-screen"); show("exam-screen");
+          showScreen("exam-screen", "q-text");
           goTo(i);
           $("q-text").focus();
         });
@@ -608,14 +653,13 @@
     fill("presubmit-flagged", flagged, "No questions are flagged.");
 
     $("presubmit-timer").textContent = fmtTime(remainingSeconds()) + " remaining";
-    hide("exam-screen"); show("presubmit-screen");
-    $("presubmit-heading").focus();
-    window.scrollTo(0,0);
+    showScreen("presubmit-screen", "presubmit-heading");
   }
 
   function closePresubmit(){
-    hide("presubmit-screen"); show("exam-screen");
+    showScreen("exam-screen", "q-text");
     renderQuestion();
+    $("q-text").focus();
   }
 
   // ---------- scoring ----------
@@ -634,9 +678,7 @@
     window.removeEventListener("beforeunload", beforeUnloadHandler);
     clearAttempt();
     renderResults();
-    hide("exam-screen"); hide("presubmit-screen"); show("results-screen");
-    $("results-heading").focus();
-    window.scrollTo(0,0);
+    showScreen("results-screen", "results-heading");
     if (auto) announce("Time expired. Your exam was submitted automatically.");
   }
 
@@ -711,6 +753,18 @@
       tbody.appendChild(tr);
     });
 
+    var sel = $("review-domain");
+    sel.innerHTML = '<option value="all">All domains</option>';
+    c.domains.forEach(function(d){
+      if (!byDomain[d.id]) return;
+      var o = document.createElement("option");
+      o.value = d.id;
+      o.textContent = d.name + " (" + byDomain[d.id].correct + "/" + byDomain[d.id].total + ")";
+      sel.appendChild(o);
+    });
+    state.reviewDomain = "all";
+    sel.value = "all";
+
     renderReviewList();
   }
 
@@ -723,6 +777,7 @@
       if (state.reviewFilter === "incorrect" && correct) return;
       if (state.reviewFilter === "flagged" && !q.flagged) return;
       if (state.reviewFilter === "unanswered" && q.userAnswer.length) return;
+      if (state.reviewDomain !== "all" && q.domain !== state.reviewDomain) return;
       shown++;
 
       var item = document.createElement("div");
@@ -748,13 +803,27 @@
         ? q.userAnswer.map(function(idx){ return q.options[idx]; }).join("; ")
         : "(no answer selected)";
       var correctAns = q.correct.map(function(idx){ return q.options[idx]; }).join("; ");
-      var scLine = (q.scenario && state.scenarioById[q.scenario])
-        ? '<div><strong>Scenario:</strong> ' + escapeHtml(state.scenarioById[q.scenario].title) + '</div>' : '';
+      var partial = "";
+      if (!correct && q.type === "m" && q.userAnswer.length){
+        var hit = q.userAnswer.filter(function(i2){ return q.correct.indexOf(i2) !== -1; }).length;
+        var wrong = q.userAnswer.length - hit;
+        if (hit > 0) partial =
+          '<div class="review-partial">Partially correct: ' + hit + ' of ' + q.correct.length +
+          ' right' + (wrong ? ', ' + wrong + ' incorrect' : '') +
+          '. Multi-select is scored all-or-nothing.</div>';
+      }
+      // Architect answers often can't be judged without the scenario they sit under.
+      var sc = q.scenario ? state.scenarioById[q.scenario] : null;
+      var scLine = sc
+        ? '<div class="review-scenario"><strong>Scenario: ' + escapeHtml(sc.title) + '</strong>' +
+          '<span class="review-scenario-text">' + escapeHtml(sc.text) + '</span></div>'
+        : '';
 
       body.innerHTML =
         '<div><strong>Domain:</strong> ' + escapeHtml(domainName(q.domain)) + '</div>' + scLine +
         '<div class="your-ans"><strong>Your answer:</strong> ' + escapeHtml(yourAns) + '</div>' +
         '<div class="correct-ans"><strong>Correct answer:</strong> ' + escapeHtml(correctAns) + '</div>' +
+        partial +
         '<div class="exp">' + escapeHtml(q.explanation) + '</div>';
 
       head.addEventListener("click", function(){
@@ -770,6 +839,16 @@
       list.innerHTML = '<p class="presubmit-empty">Nothing matches this filter.</p>';
     }
     $("review-count").textContent = shown + " shown";
+  }
+
+  function setAllExpanded(open){
+    var list = $("review-list");
+    Array.prototype.forEach.call(list.querySelectorAll(".review-head"), function(h){
+      h.setAttribute("aria-expanded", open ? "true" : "false");
+    });
+    Array.prototype.forEach.call(list.querySelectorAll(".review-body"), function(b){
+      b.classList.toggle("hidden", !open);
+    });
   }
 
   function setFilter(f, btn){
@@ -799,14 +878,9 @@
   function retake(){
     // Re-render so the history panel reflects the attempt just completed.
     renderSplash();
-    hide("results-screen"); show("splash-screen");
-    $("splash-title").focus();
-    window.scrollTo(0,0);
+    showScreen("splash-screen", "splash-title");
   }
-  function changeCourse(){
-    hide("results-screen"); hide("splash-screen"); show("course-screen");
-    window.scrollTo(0,0);
-  }
+  function changeCourse(){ showScreen("course-screen", "main-content"); }
 
   function abandonAttempt(){
     if (!window.confirm("Discard the attempt in progress?")) return;
@@ -814,7 +888,7 @@
     clearInterval(state.timerId);
     window.removeEventListener("beforeunload", beforeUnloadHandler);
     clearAttempt();
-    hide("exam-screen"); hide("presubmit-screen"); show("course-screen");
+    showScreen("course-screen", "main-content");
   }
 
   // ---------- boot ----------
@@ -856,6 +930,12 @@
     Array.prototype.forEach.call(document.querySelectorAll(".filter-btn"), function(b){
       b.addEventListener("click", function(){ setFilter(b.dataset.filter, b); });
     });
+    $("review-domain").addEventListener("change", function(){
+      state.reviewDomain = this.value;
+      renderReviewList();
+    });
+    $("expand-all").addEventListener("click", function(){ setAllExpanded(true); });
+    $("collapse-all").addEventListener("click", function(){ setAllExpanded(false); });
 
     // Offer to resume an interrupted attempt.
     var saved = readSavedAttempt();

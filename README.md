@@ -28,8 +28,12 @@ Free, timed, unofficial practice exams for **all four Anthropic Claude certifica
 - **Resumable** — your attempt and its deadline are saved locally, so closing the tab by accident doesn't lose your progress
 - **Deadline-based timer** that stays accurate through background tabs and device sleep, rather than counting down per tick
 - **Pre-submission review** listing unanswered and flagged questions before you commit
-- **Keyboard and screen-reader accessible** — native radio/checkbox controls, arrow-key navigation in the question grid, live announcements for time warnings
-- **Filterable answer review** — all, incorrect, flagged, or unanswered
+- **Keyboard and screen-reader accessible** — native radio/checkbox controls, arrow-key navigation in the question grid, focus placed deliberately on every screen change, live announcements for time warnings, and WCAG AA text contrast
+- **Multi-select questions state how many answers to pick** ("Select 2 answers"), matching the real exam's wording
+- **Selecting an option clears its strikeout**, and striking one clears the selection, so an answer can't be both chosen and ruled out
+- **Filterable answer review** — all, incorrect, flagged or unanswered, plus a per-domain filter and expand/collapse all
+- **Scenario context is repeated in the results review**, since Architect answers often can't be judged without it
+- **Partial-credit note on multi-select**, showing how many you had right on an item scored all-or-nothing
 - **Attempt history** per certification: past scores, time taken, pass/fail, your weakest domains across recent attempts, and a comparison of each new result against your best and average — with JSON **export/import** so it isn't trapped in one browser
 
 ## Why it exists

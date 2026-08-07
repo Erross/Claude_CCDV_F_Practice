@@ -79,17 +79,42 @@ t("option shuffling preserves the answer key", () => {
 });
 
 t("bank fingerprint is stable and change-sensitive", () => {
-  courses.forEach(c => {
-    eq(E.bankFingerprint(c), E.bankFingerprint(c), c.code + " unstable fingerprint");
-  });
+  courses.forEach(c => eq(E.bankFingerprint(c), E.bankFingerprint(c), c.code + " unstable"));
+
+  // The earlier fingerprint hashed only question count, stem LENGTH and key positions.
+  // That missed a same-length stem swap and any option rewrite entirely — a saved attempt
+  // could be restored against edited questions, mapping answers onto different content.
+  // Each case below must change the digest, and reverting must restore it.
   const c = courses[0];
-  const before = E.bankFingerprint(c);
-  const original = c.questions[0].q;
-  c.questions[0].q = original + " (edited)";
-  const after = E.bankFingerprint(c);
-  c.questions[0].q = original;
-  assert(before !== after, "fingerprint did not change when a question changed");
-  eq(E.bankFingerprint(c), before, "fingerprint did not return after revert");
+  const base = E.bankFingerprint(c);
+  const q = c.questions[0];
+
+  const mutations = [
+    ["same-length stem swap", () => { const o = q.q; q.q = "X".repeat(o.length); return () => { q.q = o; }; }],
+    ["option text rewritten", () => { const o = q.o[0]; q.o[0] = o + " EDITED"; return () => { q.o[0] = o; }; }],
+    ["options reordered",     () => { const o = q.o.slice(); q.o = [o[1], o[0], o[2], o[3]]; return () => { q.o = o; }; }],
+    ["answer key moved",      () => { const o = q.c.slice(); q.c = [(o[0] + 1) % 4]; return () => { q.c = o; }; }],
+    ["domain reassigned",     () => { const o = q.d; q.d = "ZZ"; return () => { q.d = o; }; }],
+    ["question type changed", () => { const o = q.t; q.t = q.t === "s" ? "m" : "s"; return () => { q.t = o; }; }]
+  ];
+
+  mutations.forEach(([name, mutate]) => {
+    const undo = mutate();
+    const after = E.bankFingerprint(c);
+    undo();
+    assert(after !== base, "fingerprint did not change after: " + name);
+    eq(E.bankFingerprint(c), base, "fingerprint did not restore after: " + name);
+  });
+});
+
+t("a fingerprint mismatch is what rejects a stale saved attempt", () => {
+  const c = courses[0];
+  const saved = { fingerprint: E.bankFingerprint(c) };
+  const q = c.questions[0], original = q.o[0];
+  q.o[0] = original + " EDITED";
+  const stale = saved.fingerprint !== E.bankFingerprint(c);
+  q.o[0] = original;
+  assert(stale, "an edited option left the saved attempt looking valid");
 });
 
 console.log("\nexact domain allocation");

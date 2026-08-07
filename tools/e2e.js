@@ -17,12 +17,15 @@ let pass = 0, fail = 0;
 const t = (n, f) => { try { f(); pass++; console.log("  pass  " + n); }
   catch (e) { fail++; console.log("  FAIL  " + n + "\n        " + e.message); } };
 const assert = (c, m) => { if (!c) throw new Error(m || "assertion failed"); };
+const eq = (a, b, m) => { if (a !== b) throw new Error((m || "not equal") + ": got " + a + ", expected " + b); };
 
-function boot() {
+function boot(opts) {
+  opts = opts || {};
   const dom = new JSDOM(fs.readFileSync(path.join(ROOT, "index.html"), "utf8"), {
     runScripts: "outside-only", url: "https://example.test/"
   });
   const w = dom.window;
+  if (opts.width) Object.defineProperty(w, "innerWidth", { value: opts.width, configurable: true });
   // minimal localStorage
   const store = {};
   Object.defineProperty(w, "localStorage", { value: {
@@ -32,6 +35,8 @@ function boot() {
   }, configurable: true });
   w.URL.createObjectURL = () => "blob:stub";
   w.URL.revokeObjectURL = () => {};
+  // jsdom does not implement scrollTo; stubbing it keeps real errors visible in output.
+  w.scrollTo = () => {};
   ["courses.js","exam.js","data/ccao-f.js","data/ccdv-f.js","data/ccar-f.js","data/ccar-p.js","app.js"]
     .forEach(f => w.eval(fs.readFileSync(path.join(ROOT, f), "utf8")));
   w.document.dispatchEvent(new w.Event("DOMContentLoaded"));
@@ -172,6 +177,7 @@ t("an interrupted attempt is offered for resume on reload", () => {
   const dom2 = new JSDOM(fs.readFileSync(path.join(ROOT, "index.html"), "utf8"),
     { runScripts: "outside-only", url: "https://example.test/" });
   const w2 = dom2.window, store2 = { "claude-exams:v1:active-attempt": raw };
+  w2.scrollTo = () => {};
   Object.defineProperty(w2, "localStorage", { value: {
     getItem: k => (k in store2 ? store2[k] : null),
     setItem: (k, v) => { store2[k] = String(v); },
@@ -198,6 +204,7 @@ t("a stale bank invalidates the saved attempt instead of restoring it", () => {
   const dom2 = new JSDOM(fs.readFileSync(path.join(ROOT, "index.html"), "utf8"),
     { runScripts: "outside-only", url: "https://example.test/" });
   const w2 = dom2.window, store2 = { "claude-exams:v1:active-attempt": JSON.stringify(saved) };
+  w2.scrollTo = () => {};
   Object.defineProperty(w2, "localStorage", { value: {
     getItem: k => (k in store2 ? store2[k] : null),
     setItem: (k, v) => { store2[k] = String(v); },
@@ -221,6 +228,178 @@ t("scenario course shows its scenario panel", () => {
   d.getElementById("start-btn").click();
   assert(!d.getElementById("scenario-panel").classList.contains("hidden"), "scenario panel hidden");
   assert(d.getElementById("scenario-text").textContent.length > 50, "scenario text missing");
+});
+
+console.log("\nfocus management");
+
+// Focus was previously left on controls that then got hidden or rebuilt, dropping
+// keyboard users to <body>. Each transition must land somewhere usable.
+function activeId(d){ return d.activeElement ? d.activeElement.id || d.activeElement.tagName : "(none)"; }
+
+t("starting an exam moves focus to the question", () => {
+  const { d } = boot();
+  d.querySelectorAll(".course-card")[1].click();
+  d.getElementById("start-btn").click();
+  eq(activeId(d), "q-text", "focus after start");
+});
+
+t("selecting a course moves focus to the splash heading", () => {
+  const { d } = boot();
+  d.querySelectorAll(".course-card")[1].click();
+  eq(activeId(d), "splash-title", "focus after course selection");
+});
+
+t("navigator activation moves focus to the question, not <body>", () => {
+  const { d } = boot();
+  d.querySelectorAll(".course-card")[1].click();
+  d.getElementById("start-btn").click();
+  d.querySelectorAll(".nav-cell")[5].click();
+  eq(activeId(d), "q-text", "focus after navigator jump");
+});
+
+t("prev and next keep focus on the question", () => {
+  const { d } = boot();
+  d.querySelectorAll(".course-card")[1].click();
+  d.getElementById("start-btn").click();
+  d.getElementById("next-btn").click();
+  eq(activeId(d), "q-text", "focus after next");
+  d.getElementById("prev-btn").click();
+  eq(activeId(d), "q-text", "focus after prev");
+});
+
+t("keep working returns focus to the question", () => {
+  const { d } = boot();
+  d.querySelectorAll(".course-card")[1].click();
+  d.getElementById("start-btn").click();
+  d.getElementById("submit-btn").click();
+  eq(activeId(d), "presubmit-heading", "focus on presubmit");
+  d.getElementById("presubmit-back").click();
+  eq(activeId(d), "q-text", "focus after keep working");
+});
+
+t("submitting, retaking and changing course all place focus", () => {
+  const { d } = boot();
+  d.querySelectorAll(".course-card")[1].click();
+  d.getElementById("start-btn").click();
+  d.getElementById("submit-btn").click();
+  d.getElementById("presubmit-submit").click();
+  eq(activeId(d), "results-heading", "focus on results");
+  d.getElementById("retake-btn").click();
+  eq(activeId(d), "splash-title", "focus after retake");
+  d.getElementById("change-course-btn").click();
+  eq(activeId(d), "main-content", "focus after change certification");
+});
+
+t("abandoning an attempt places focus on the course picker", () => {
+  const ctx = boot();
+  ctx.w.confirm = () => true;
+  ctx.d.querySelectorAll(".course-card")[1].click();
+  ctx.d.getElementById("start-btn").click();
+  ctx.d.getElementById("abandon-btn").click();
+  eq(activeId(ctx.d), "main-content", "focus after abandon");
+});
+
+console.log("\nnavigator and option behaviour");
+
+t("multi-select states how many answers are required", () => {
+  const { d, w } = boot();
+  d.querySelectorAll(".course-card")[1].click();
+  d.getElementById("start-btn").click();
+  const course = w.getCourse(d.getElementById("exam-code").textContent.replace("//",""));
+  // step through until a multi-select appears
+  let found = null;
+  for (let i = 0; i < 60 && !found; i++) {
+    const pill = d.getElementById("type-pill").textContent;
+    if (/^Select \d answers$/.test(pill)) found = pill;
+    else d.getElementById("next-btn").click();
+  }
+  assert(found, "no multi-select question stated a count");
+  assert(/Select [23] answers/.test(found), "unexpected cardinality text: " + found);
+  assert(d.getElementById("q-legend").textContent.includes(found), "legend does not match the pill");
+});
+
+t("selecting an option clears its strikeout, and striking clears the selection", () => {
+  const { d } = boot();
+  d.querySelectorAll(".course-card")[1].click();
+  d.getElementById("start-btn").click();
+
+  // strike first, then select: the strikeout must clear
+  d.querySelectorAll(".strike-btn")[0].click();
+  assert(d.querySelectorAll(".option-row")[0].classList.contains("struck"), "strikeout not applied");
+  let input = d.querySelectorAll("#options input")[0];
+  input.checked = true;
+  input.dispatchEvent(new (d.defaultView.Event)("change"));
+  assert(!d.querySelectorAll(".option-row")[0].classList.contains("struck"),
+    "option is both selected and struck out");
+
+  // now select, then strike: the selection must clear
+  d.querySelectorAll(".strike-btn")[0].click();
+  input = d.querySelectorAll("#options input")[0];
+  assert(!input.checked, "option remained selected after being struck out");
+});
+
+t("mobile navigator closes after a jump and updates aria-expanded", () => {
+  const { d } = boot({ width: 700 });
+  d.querySelectorAll(".course-card")[1].click();
+  d.getElementById("start-btn").click();
+  const toggle = d.getElementById("nav-toggle"), panel = d.getElementById("nav-panel");
+  toggle.click();
+  assert(panel.classList.contains("open"), "panel did not open");
+  eq(toggle.getAttribute("aria-expanded"), "true", "aria-expanded after opening");
+  d.querySelectorAll(".nav-cell")[4].click();
+  assert(!panel.classList.contains("open"), "panel stayed open after a jump");
+  eq(toggle.getAttribute("aria-expanded"), "false", "aria-expanded after jump");
+});
+
+t("arrow-down moves by the column count the layout actually uses", () => {
+  // 700px falls in the 8-column band; 500px in the 6-column band
+  [[700, 8], [500, 6]].forEach(([width, cols]) => {
+    const { d } = boot({ width });
+    d.querySelectorAll(".course-card")[1].click();
+    d.getElementById("start-btn").click();
+    const cells = d.querySelectorAll(".nav-cell");
+    cells[0].focus();
+    const ev = new (d.defaultView.KeyboardEvent)("keydown", { key: "ArrowDown", bubbles: true });
+    cells[0].dispatchEvent(ev);
+    const label = d.activeElement.getAttribute("aria-label") || "";
+    const landed = parseInt(label.replace(/\D+/, ""), 10);
+    eq(landed, cols + 1, "at " + width + "px arrow-down should land on question " + (cols + 1));
+  });
+});
+
+t("results review includes the scenario body, not just its title", () => {
+  const { d } = boot();
+  const codes = Array.from(d.querySelectorAll(".course-card .cc-code")).map(e => e.textContent);
+  const i = codes.indexOf("CCAR-F");
+  d.querySelectorAll(".course-card")[i].click();
+  d.getElementById("start-btn").click();
+  d.getElementById("submit-btn").click();
+  d.getElementById("presubmit-submit").click();
+  const body = d.querySelector("#review-list .review-body");
+  const txt = body.querySelector(".review-scenario-text");
+  assert(txt && txt.textContent.length > 80, "scenario body missing from the review item");
+});
+
+t("results can be filtered by domain and expanded or collapsed in bulk", () => {
+  const { d } = boot();
+  d.querySelectorAll(".course-card")[1].click();
+  d.getElementById("start-btn").click();
+  d.getElementById("submit-btn").click();
+  d.getElementById("presubmit-submit").click();
+
+  const all = d.querySelectorAll("#review-list .review-item").length;
+  const sel = d.getElementById("review-domain");
+  assert(sel.options.length > 1, "domain filter not populated");
+  sel.value = sel.options[1].value;
+  sel.dispatchEvent(new (d.defaultView.Event)("change"));
+  assert(d.querySelectorAll("#review-list .review-item").length < all, "domain filter did not narrow");
+  sel.value = "all";
+  sel.dispatchEvent(new (d.defaultView.Event)("change"));
+
+  d.getElementById("expand-all").click();
+  assert(d.querySelectorAll("#review-list .review-body:not(.hidden)").length === all, "expand all failed");
+  d.getElementById("collapse-all").click();
+  assert(d.querySelectorAll("#review-list .review-body:not(.hidden)").length === 0, "collapse all failed");
 });
 
 console.log("\nattempt history");

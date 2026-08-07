@@ -155,15 +155,24 @@
   }
 
   // A saved attempt refers to questions by bank index, so it must be rejected if the
-  // bank has changed underneath it. Cheap order-sensitive fingerprint over the stems.
+  // bank has changed underneath it. An earlier version hashed only question count, stem
+  // LENGTH and key positions — which meant swapping a stem for different text of the same
+  // length, or rewriting an option, left the fingerprint identical. A restored attempt
+  // would then map saved answer positions onto different content. Hash the full content.
   function bankFingerprint(course) {
-    var h = 5381;
-    var s = course.code + "|" + course.questions.length + "|" +
-            course.questions.map(function (q) { return q.q.length + ":" + q.c.join(","); }).join("|");
-    for (var i = 0; i < s.length; i++) {
-      h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+    var payload = JSON.stringify(course.questions.map(function (q) {
+      return { d: q.d, t: q.t, q: q.q, o: q.o, c: q.c, sc: q.sc || null };
+    }));
+    // FNV-1a over the payload, plus a second pass with a different seed, so a short
+    // digest still distinguishes small edits reliably.
+    var h1 = 2166136261, h2 = 5381;
+    for (var i = 0; i < payload.length; i++) {
+      var ch = payload.charCodeAt(i);
+      h1 ^= ch; h1 = Math.imul(h1, 16777619);
+      h2 = ((h2 << 5) + h2 + ch) | 0;
     }
-    return course.code + "-" + course.questions.length + "-" + (h >>> 0).toString(36);
+    return course.code + "-" + course.questions.length + "-" +
+           (h1 >>> 0).toString(36) + (h2 >>> 0).toString(36);
   }
 
   var api = {
