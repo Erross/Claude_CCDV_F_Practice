@@ -338,6 +338,43 @@ t("selecting an option clears its strikeout, and striking clears the selection",
   assert(!input.checked, "option remained selected after being struck out");
 });
 
+// Answering and striking both re-render the whole question, destroying and recreating
+// every option control. Without explicit restoration focus lands on <body>, which strands
+// a keyboard user mid-question. State assertions alone did not catch this.
+t("answering an option keeps focus on that option", () => {
+  const { d } = boot();
+  d.querySelectorAll(".course-card")[1].click();
+  d.getElementById("start-btn").click();
+
+  const input = d.querySelectorAll("#options input")[1];
+  const id = input.id;
+  input.focus();
+  eq(activeId(d), id, "focus did not start on the option");
+  input.checked = true;
+  input.dispatchEvent(new (d.defaultView.Event)("change"));
+  eq(activeId(d), id, "focus was lost when the question re-rendered");
+  assert(d.getElementById(id).checked, "the refocused control is not the selected one");
+});
+
+t("striking an option keeps focus on that strikeout button", () => {
+  const { d } = boot();
+  d.querySelectorAll(".course-card")[1].click();
+  d.getElementById("start-btn").click();
+
+  const strike = d.querySelectorAll(".strike-btn")[1];
+  const id = strike.id;
+  assert(id, "strikeout buttons need stable ids to survive the re-render");
+  strike.focus();
+  strike.click();
+  eq(activeId(d), id, "focus was lost when the question re-rendered");
+  eq(d.getElementById(id).getAttribute("aria-pressed"), "true",
+    "the refocused button does not reflect the new struck state");
+
+  // and again on un-striking
+  d.getElementById(id).click();
+  eq(activeId(d), id, "focus was lost when the strikeout was removed");
+});
+
 t("mobile navigator closes after a jump and updates aria-expanded", () => {
   const { d } = boot({ width: 700 });
   d.querySelectorAll(".course-card")[1].click();
@@ -400,6 +437,37 @@ t("results can be filtered by domain and expanded or collapsed in bulk", () => {
   assert(d.querySelectorAll("#review-list .review-body:not(.hidden)").length === all, "expand all failed");
   d.getElementById("collapse-all").click();
   assert(d.querySelectorAll("#review-list .review-body:not(.hidden)").length === 0, "collapse all failed");
+});
+
+// Expand/Collapse used to carry class="filter-btn", so the filter wiring bound them as
+// filters: clicking one called setFilter(undefined) and silently reset the review to All.
+t("expanding or collapsing does not disturb the selected filter", () => {
+  const ctx = boot();
+  playThrough(ctx, 1);
+  const d = ctx.d;
+
+  const flagged = d.querySelector('.filter-btn[data-filter="flagged"]');
+  const incorrect = d.querySelector('.filter-btn[data-filter="incorrect"]');
+  incorrect.click();
+  const shown = d.querySelectorAll("#review-list .review-item").length;
+  const total = d.querySelectorAll('.filter-btn[data-filter="all"]').length &&
+    (incorrect.click(), d.querySelectorAll("#review-list .review-item").length);
+  eq(total, shown, "filter state is not stable across repeated clicks");
+
+  ["expand-all", "collapse-all"].forEach(id => {
+    d.getElementById(id).click();
+    eq(d.querySelectorAll("#review-list .review-item").length, shown,
+      id + " changed which questions are listed");
+    assert(incorrect.classList.contains("active"), id + " deactivated the selected filter");
+    eq(incorrect.getAttribute("aria-pressed"), "true", id + " cleared aria-pressed on the filter");
+    assert(!d.getElementById(id).classList.contains("active"),
+      id + " is a view control and must not present itself as the active filter");
+  });
+
+  // the filters themselves still work afterwards
+  flagged.click();
+  assert(flagged.classList.contains("active"), "filters stopped responding");
+  assert(!incorrect.classList.contains("active"), "the previous filter stayed active");
 });
 
 console.log("\nattempt history");

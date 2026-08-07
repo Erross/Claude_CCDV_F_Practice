@@ -562,6 +562,11 @@
 
   // ---------- question ----------
   function renderQuestion(){
+    // Every option control below is destroyed and recreated. Answering or striking calls
+    // back into here, so without restoring focus the keyboard user is dumped on <body>
+    // mid-question. Controls carry stable ids precisely so they survive the rebuild.
+    var prevFocusId = (document.activeElement && document.activeElement.id) || "";
+
     var q = state.examQuestions[state.current];
     $("progress-txt").textContent = "Question " + (state.current+1) + " / " + state.examQuestions.length;
     $("domain-pill").textContent = domainName(q.domain);
@@ -615,6 +620,7 @@
 
       var strike = document.createElement("button");
       strike.type = "button";
+      strike.id = "strike-" + state.current + "-" + idx;
       strike.className = "strike-btn" + (q.struck[idx] ? " active" : "");
       strike.setAttribute("aria-pressed", q.struck[idx] ? "true" : "false");
       strike.setAttribute("aria-label", "Rule out option: " + optText);
@@ -641,6 +647,13 @@
     $("next-btn").textContent =
       state.current === state.examQuestions.length - 1 ? "Review & submit" : "Next →";
     renderNavGrid();
+
+    // Put focus back on the recreated counterpart of whatever held it. Callers that
+    // deliberately move focus elsewhere (goTo, screen changes) do so after this returns.
+    if (prevFocusId && document.activeElement !== document.getElementById(prevFocusId)){
+      var again = document.getElementById(prevFocusId);
+      if (again && typeof again.focus === "function") again.focus();
+    }
   }
 
   function toggleAnswer(q, idx){
@@ -907,9 +920,13 @@
     });
   }
 
+  // Only buttons carrying data-filter are filters. Expand/Collapse sit in the same row
+  // but are view controls: selecting them must not reset which questions are shown.
+  var FILTER_SELECTOR = ".filter-btn[data-filter]";
+
   function setFilter(f, btn){
     state.reviewFilter = f;
-    Array.prototype.forEach.call(document.querySelectorAll(".filter-btn"), function(b){
+    Array.prototype.forEach.call(document.querySelectorAll(FILTER_SELECTOR), function(b){
       b.classList.toggle("active", b === btn);
       b.setAttribute("aria-pressed", b === btn ? "true" : "false");
     });
@@ -974,7 +991,7 @@
       this.setAttribute("aria-expanded", open ? "true" : "false");
     });
 
-    Array.prototype.forEach.call(document.querySelectorAll(".filter-btn"), function(b){
+    Array.prototype.forEach.call(document.querySelectorAll(FILTER_SELECTOR), function(b){
       b.addEventListener("click", function(){ setFilter(b.dataset.filter, b); });
     });
     $("review-domain").addEventListener("change", function(){

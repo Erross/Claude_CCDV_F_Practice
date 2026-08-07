@@ -707,11 +707,11 @@ p.hero-sub{
 
 /* ============ RESULTS FILTERS ============ */
 .filter-row{ display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; margin-bottom:1rem; }
-.filter-btn{
+.filter-btn, .tool-btn{
   background:var(--panel); border:1px solid var(--border); color:var(--text-dim);
   border-radius:999px; padding:.35rem .9rem; font-size:.82rem; cursor:pointer;
 }
-.filter-btn:hover{ border-color:var(--border-strong); color:var(--text); }
+.filter-btn:hover, .tool-btn:hover{ border-color:var(--border-strong); color:var(--text); }
 .filter-btn.active{ background:var(--accent-dim); border-color:var(--accent); color:var(--text); }
 .review-count{ margin-left:auto; font-family:var(--mono); font-size:.78rem; color:var(--text-faint); }
 
