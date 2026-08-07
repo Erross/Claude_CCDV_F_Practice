@@ -84,32 +84,52 @@ function auditCourse(c){
   // ---- conceptual duplication ----
   // Two items testing the same lesson collapse the bank's effective size. Compare the
   // content words of stem + correct answer; heavy overlap in the same domain is a flag.
+  //
+  // This check used to skip any pair from different scenarios, which made it blind to the
+  // repetition that actually matters: a candidate's draw spans four scenario blocks, so two
+  // items with the same lesson dressed in different scenario nouns land in the same exam.
+  // A review found eleven such clusters in CCAR-F while this reported none. Scenario is now
+  // reported, not filtered on, and a second pass compares correct answers alone — the
+  // sharper signal, since restating one lesson in two settings changes the stem far more
+  // than it changes the key.
   const STOP = new Set(("a an the and or but of to in on for with is are be been was were it its this that these those " +
     "what which who whom when where why how should would could most best least more less than then " +
     "claude model output request prompt team user users task question answer response not no yes do does did " +
     "at by from as if so such into over under about their there they them he she his her you your our we").split(" "));
-  const sig = q => {
-    const words = (q.q + " " + q.c.map(i => q.o[i]).join(" "))
-      .toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/)
-      .filter(w => w.length > 3 && !STOP.has(w));
-    return new Set(words);
+  const bag = text => new Set(text.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/)
+    .filter(w => w.length > 3 && !STOP.has(w)));
+  const jaccard = (a, b) => {
+    let inter = 0;
+    a.forEach(w => { if (b.has(w)) inter++; });
+    return inter / (a.size + b.size - inter);
   };
-  const sigs = Q.map(sig);
+  const where = i => Q[i].sc ? Q[i].sc : "-";
+  const fullSig = Q.map(q => bag(q.q + " " + q.c.map(i => q.o[i]).join(" ")));
+  const keySig = Q.map(q => bag(q.c.map(i => q.o[i]).join(" ")));
+
   const dupPairs = [];
   for (let i = 0; i < Q.length; i++) {
     for (let j = i + 1; j < Q.length; j++) {
       if (Q[i].d !== Q[j].d) continue;              // same domain only
-      if (Q[i].sc && Q[j].sc && Q[i].sc !== Q[j].sc) continue;
-      const a = sigs[i], b = sigs[j];
-      if (a.size < 5 || b.size < 5) continue;
-      let inter = 0;
-      a.forEach(w => { if (b.has(w)) inter++; });
-      const jac = inter / (a.size + b.size - inter);
-      if (jac >= 0.5) dupPairs.push({ i, j, jac });
+      const sameScenario = Q[i].sc && Q[j].sc && Q[i].sc === Q[j].sc;
+      let jac = 0, basis = "";
+      if (fullSig[i].size >= 5 && fullSig[j].size >= 5) {
+        jac = jaccard(fullSig[i], fullSig[j]);
+        basis = "stem+key";
+      }
+      // The key-only pass catches one lesson restaged in a second scenario, where the
+      // stems share almost no vocabulary but the correct answers say the same thing.
+      if (keySig[i].size >= 4 && keySig[j].size >= 4) {
+        const kj = jaccard(keySig[i], keySig[j]);
+        if (kj >= 0.55 && kj > jac) { jac = kj; basis = "key"; }
+      }
+      // Within one scenario a shared setting inflates overlap, so demand more there.
+      if (jac >= (sameScenario ? 0.5 : 0.45)) dupPairs.push({ i, j, jac, basis, sameScenario });
     }
   }
-  dupPairs.sort((x, y) => y.jac - x.jac).slice(0, 15).forEach(p => {
-    add("WARN", `Q${p.i+1} and Q${p.j+1} may test the same lesson (${Math.round(p.jac*100)}% term overlap): "${Q[p.i].q.slice(0,60)}..." / "${Q[p.j].q.slice(0,60)}..."`);
+  dupPairs.sort((x, y) => y.jac - x.jac).slice(0, 20).forEach(p => {
+    add("WARN", `Q${p.i+1} (${where(p.i)}) and Q${p.j+1} (${where(p.j)}) may test the same lesson ` +
+      `(${Math.round(p.jac*100)}% ${p.basis} overlap): "${Q[p.i].q.slice(0,55)}..." / "${Q[p.j].q.slice(0,55)}..."`);
   });
 
   // ---- answer-length bias ----
