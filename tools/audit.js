@@ -8,6 +8,8 @@
 const path = require("path");
 global.window = global;
 require(path.join(__dirname, "..", "courses.js"));
+// Same engine the browser runs, so the audit measures the real draw rather than a copy.
+const E = require(path.join(__dirname, "..", "exam.js"));
 
 for (const f of ["ccao-f", "ccdv-f", "ccar-f", "ccar-p"]) {
   const p = path.join(__dirname, "..", "data", f + ".js");
@@ -19,8 +21,8 @@ const META = /\b(blueprint|this domain|this exam|the exam|exam expects|exam test
 const POSITIONAL = /\bonly the (first|last|second|third)\b|\boption [A-D]\b|\bthe (first|last) option\b/i;
 const NUMERIC_SEQ = /^\d(, \d){4}$/;
 
-function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
-function pickN(a,n){return shuffle(a).slice(0,Math.min(n,a.length));}
+const shuffle = E.shuffle;
+const pickN = E.pickN;
 
 function auditCourse(c){
   const Q = c.questions;
@@ -146,39 +148,24 @@ function auditCourse(c){
   });
 
   // ---- draw simulation ----
-  const isScenario = global.isScenarioCourse(c);
   let drawFails = 0;
   for (let k = 0; k < 500; k++) {
-    let drawn = [];
-    if (isScenario) {
-      pickN(c.scenarios, c.scenarioDraw.scenarios).forEach(sc => {
-        const pool = c.questions.filter(q => q.sc === sc.id);
-        const got = pickN(pool, c.scenarioDraw.perScenario);
-        if (got.length !== c.scenarioDraw.perScenario) drawFails++;
-        drawn = drawn.concat(got);
-      });
-    } else {
-      c.domains.forEach(d => {
-        const pool = c.questions.filter(q => q.d === d.id);
-        const got = pickN(pool, d.examCount);
-        if (got.length !== d.examCount) drawFails++;
-        drawn = drawn.concat(got);
-      });
-    }
+    const drawn = E.drawQuestions(c);
     if (drawn.length !== c.items) drawFails++;
-    // key remapping must survive option shuffling
+    // answer keys must survive option shuffling
     drawn.forEach(o => {
       const ord = shuffle(o.o.map((_, i) => i));
       const no = ord.map(i => o.o[i]);
-      const ncArr = o.c.map(ci => ord.indexOf(ci)).sort();
+      const nc = o.c.map(ci => ord.indexOf(ci)).sort();
       const a = o.c.map(i => o.o[i]).sort();
-      const b = ncArr.map(i => no[i]).sort();
+      const b = nc.map(i => no[i]).sort();
       if (JSON.stringify(a) !== JSON.stringify(b)) drawFails++;
     });
   }
   if (drawFails) add("ERROR", `${drawFails} failures across 500 simulated draws`);
 
   // ---- blueprint coverage ----
+  const isScenario = E.isScenarioCourse(c);
   if (!isScenario) {
     const sum = c.domains.reduce((s, d) => s + (d.examCount || 0), 0);
     if (sum !== c.items) add("ERROR", `domain examCount sums to ${sum}, expected ${c.items}`);
@@ -202,59 +189,16 @@ function auditCourse(c){
 
   // ---- blueprint fidelity of the generated exam ----
   // Structural validity isn't enough: the exam actually produced has to reproduce the
-  // published domain weights. Scenario courses are where this drifts, because pool
-  // composition rather than the blueprint would otherwise decide the mix.
+  // published domain weights. Uses the shared engine, so this measures the real draw.
   {
     const tally = {};
     let drawnTotal = 0;
-    const SIMS = 3000;
-    for (let k = 0; k < SIMS; k++) {
-      let drawn = [];
-      if (isScenario) {
-        const chosen = pickN(c.scenarios, c.scenarioDraw.scenarios);
-        const per = c.scenarioDraw.perScenario;
-        const remaining = {};
-        {
-          const parts = c.domains.map(d => {
-            const e = chosen.length * per * d.weight / 100;
-            return { id: d.id, n: Math.floor(e), rem: e - Math.floor(e) };
-          });
-          let short = chosen.length * per - parts.reduce((s, p) => s + p.n, 0);
-          parts.slice().sort((a, b) => b.rem - a.rem).slice(0, short).forEach(p => p.n++);
-          parts.forEach(p => remaining[p.id] = p.n);
-        }
-        const pools = chosen.map(sc => {
-          const b = {};
-          c.domains.forEach(d => { b[d.id] = shuffle(c.questions.filter(q => q.sc === sc.id && q.d === d.id)); });
-          return b;
-        });
-        const picked = chosen.map(() => []);
-        Object.keys(remaining)
-          .sort((a, b) => pools.reduce((s, p) => s + p[a].length, 0) - pools.reduce((s, p) => s + p[b].length, 0))
-          .forEach(dom => {
-            let want = remaining[dom], guard = 0;
-            while (want > 0 && guard < 1000) {
-              let progressed = false;
-              for (let i = 0; i < pools.length && want > 0; i++) {
-                if (picked[i].length >= per || !pools[i][dom].length) continue;
-                picked[i].push(pools[i][dom].pop()); want--; progressed = true;
-              }
-              if (!progressed) break;
-              guard++;
-            }
-          });
-        picked.forEach((list, i) => {
-          if (list.length >= per) return;
-          let left = [];
-          c.domains.forEach(d => { left = left.concat(pools[i][d.id]); });
-          shuffle(left).slice(0, per - list.length).forEach(q => list.push(q));
-        });
-        drawn = [].concat.apply([], picked);
-      } else {
-        c.domains.forEach(d => { drawn = drawn.concat(pickN(c.questions.filter(q => q.d === d.id), d.examCount)); });
-      }
+    for (let k = 0; k < 3000; k++) {
+      const drawn = E.drawQuestions(c);
       drawnTotal += drawn.length;
       drawn.forEach(q => tally[q.d] = (tally[q.d] || 0) + 1);
+      if (drawn.length !== c.items)
+        add("ERROR", `a simulated draw produced ${drawn.length} questions, expected ${c.items}`);
     }
     c.domains.forEach(d => {
       const share = 100 * (tally[d.id] || 0) / drawnTotal;

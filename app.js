@@ -1,65 +1,55 @@
 (function(){
   "use strict";
 
+  var E = window.ExamEngine;
+  var STORE_KEY = "claude-exams:v1:active-attempt";
+  var SCHEMA = 1;
+
   var state = {
     course: null,
     examQuestions: [],
     scenarioById: {},
     current: 0,
-    timeLeft: 0,
+    deadline: null,      // epoch ms; the timer is derived from this, never decremented
     timerId: null,
-    submitted: false
+    submitted: false,
+    reviewFilter: "all"
   };
 
-  // ---------- helpers ----------
-  function shuffle(arr){
-    var a = arr.slice();
-    for (var i = a.length - 1; i > 0; i--){
-      var j = Math.floor(Math.random() * (i + 1));
-      var tmp = a[i]; a[i] = a[j]; a[j] = tmp;
-    }
-    return a;
-  }
-
-  function pickN(arr, n){
-    return shuffle(arr).slice(0, Math.min(n, arr.length));
-  }
-
+  // ---------- small helpers ----------
   function fmtTime(sec){
-    var m = Math.floor(sec / 60);
-    var s = sec % 60;
+    var m = Math.floor(sec / 60), s = sec % 60;
     return String(m).padStart(2,"0") + ":" + String(s).padStart(2,"0");
   }
-
+  function $(id){ return document.getElementById(id); }
+  function show(id){ $(id).classList.remove("hidden"); }
+  function hide(id){ $(id).classList.add("hidden"); }
+  function escapeHtml(str){ var d = document.createElement("div"); d.textContent = str; return d.innerHTML; }
   function domainName(id){
     var d = state.course.domains.find(function(x){ return x.id === id; });
     return d ? d.name : id;
   }
-
   function colorFor(id){ return window.domainColor(state.course, id); }
-
-  function escapeHtml(str){
-    var d = document.createElement("div");
-    d.textContent = str;
-    return d.innerHTML;
+  function announce(msg){
+    var el = $("live-region");
+    if (el) el.textContent = msg;
   }
 
-  function show(id){ document.getElementById(id).classList.remove("hidden"); }
-  function hide(id){ document.getElementById(id).classList.add("hidden"); }
-
-  // ---------- build exam ----------
-  function prepare(orig){
-    var order = shuffle(orig.o.map(function(_, i){ return i; }));
-    var newOptions = order.map(function(i){ return orig.o[i]; });
-    var newCorrect = orig.c.map(function(ci){ return order.indexOf(ci); })
-                           .sort(function(a,b){ return a-b; });
+  // ---------- attempt construction ----------
+  // Questions are stored by bank index so a saved attempt stays small and never
+  // duplicates question text.
+  function prepareFromIndex(idx, order){
+    var orig = state.course.questions[idx];
+    order = order || E.shuffle(orig.o.map(function(_, i){ return i; }));
     return {
+      idx: idx,
+      order: order,
       domain: orig.d,
       type: orig.t,
       question: orig.q,
       scenario: orig.sc || null,
-      options: newOptions,
-      correct: newCorrect,
+      options: order.map(function(i){ return orig.o[i]; }),
+      correct: orig.c.map(function(ci){ return order.indexOf(ci); }).sort(function(a,b){ return a-b; }),
       explanation: orig.e,
       userAnswer: [],
       flagged: false,
@@ -67,117 +57,99 @@
     };
   }
 
-  // Apportion a total across domains by their blueprint weights (largest remainder).
-  function domainTargets(course, total){
-    var parts = course.domains.map(function(d){
-      var exact = total * d.weight / 100;
-      return { id: d.id, n: Math.floor(exact), rem: exact - Math.floor(exact) };
+  function buildAttempt(){
+    var indexOf = new Map();
+    state.course.questions.forEach(function(q, i){ indexOf.set(q, i); });
+    return E.drawQuestions(state.course).map(function(q){
+      return prepareFromIndex(indexOf.get(q));
     });
-    var short = total - parts.reduce(function(s, p){ return s + p.n; }, 0);
-    parts.slice().sort(function(a, b){ return b.rem - a.rem; })
-         .slice(0, short).forEach(function(p){ p.n++; });
-    var out = {};
-    parts.forEach(function(p){ out[p.id] = p.n; });
-    return out;
   }
 
-  // Scenario exams draw a subset of scenarios and ask a block of questions about each.
-  // Sampling each block uniformly would let the pools' own domain mix decide the exam's
-  // mix, which drifts away from the blueprint. So the exam-level domain quota is computed
-  // first, then spread across the chosen scenarios — each still contributing one block.
-  function buildScenarioExam(course){
-    var chosen = pickN(course.scenarios, course.scenarioDraw.scenarios);
-    var perScenario = course.scenarioDraw.perScenario;
-    var remaining = domainTargets(course, chosen.length * perScenario);
-
-    // pool[scenarioIndex][domainId] = shuffled questions still available
-    var pools = chosen.map(function(sc){
-      var byDom = {};
-      course.domains.forEach(function(d){
-        byDom[d.id] = shuffle(course.questions.filter(function(q){
-          return q.sc === sc.id && q.d === d.id;
-        }));
-      });
-      return byDom;
-    });
-
-    var picked = chosen.map(function(){ return []; });
-    // Fill the scarcest domain first so a domain thin on the ground isn't crowded out.
-    var order = Object.keys(remaining).sort(function(a, b){
-      var availA = pools.reduce(function(s, p){ return s + p[a].length; }, 0);
-      var availB = pools.reduce(function(s, p){ return s + p[b].length; }, 0);
-      return availA - availB;
-    });
-
-    order.forEach(function(dom){
-      var want = remaining[dom];
-      // round-robin across scenarios so no single block is dominated by one domain
-      var guard = 0;
-      while (want > 0 && guard < 1000){
-        var progressed = false;
-        for (var i = 0; i < pools.length && want > 0; i++){
-          if (picked[i].length >= perScenario) continue;
-          if (!pools[i][dom].length) continue;
-          picked[i].push(pools[i][dom].pop());
-          want--; progressed = true;
-        }
-        if (!progressed) break;   // pools exhausted for this domain
-        guard++;
-      }
-      remaining[dom] = want;      // any shortfall backfilled below
-    });
-
-    // Backfill any block still short (pool gaps) with whatever remains in that scenario.
-    picked.forEach(function(list, i){
-      if (list.length >= perScenario) return;
-      var leftovers = [];
-      course.domains.forEach(function(d){ leftovers = leftovers.concat(pools[i][d.id]); });
-      shuffle(leftovers).slice(0, perScenario - list.length).forEach(function(q){ list.push(q); });
-    });
-
-    var out = [];
-    picked.forEach(function(list){ shuffle(list).forEach(function(q){ out.push(prepare(q)); }); });
-    return out;
+  // ---------- persistence ----------
+  function saveAttempt(){
+    if (state.submitted || !state.course) return;
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify({
+        schema: SCHEMA,
+        code: state.course.code,
+        fingerprint: E.bankFingerprint(state.course),
+        deadline: state.deadline,
+        current: state.current,
+        questions: state.examQuestions.map(function(q){
+          return {
+            i: q.idx,
+            o: q.order,
+            a: q.userAnswer,
+            f: q.flagged ? 1 : 0,
+            s: Object.keys(q.struck).filter(function(k){ return q.struck[k]; }).map(Number)
+          };
+        })
+      }));
+    } catch (e) { /* storage unavailable or full — the exam still works, just not resumable */ }
   }
 
-  function buildWeightedExam(course){
-    var byDomain = {};
-    course.questions.forEach(function(q){
-      (byDomain[q.d] = byDomain[q.d] || []).push(q);
-    });
-    var out = [];
-    course.domains.forEach(function(dom){
-      pickN(byDomain[dom.id] || [], dom.examCount).forEach(function(q){
-        out.push(prepare(q));
-      });
-    });
-    return shuffle(out);
+  function clearAttempt(){
+    try { localStorage.removeItem(STORE_KEY); } catch (e) {}
   }
 
-  function buildExam(course){
-    return window.isScenarioCourse(course)
-      ? buildScenarioExam(course)
-      : buildWeightedExam(course);
+  function readSavedAttempt(){
+    var raw;
+    try { raw = localStorage.getItem(STORE_KEY); } catch (e) { return null; }
+    if (!raw) return null;
+    var data;
+    try { data = JSON.parse(raw); } catch (e) { clearAttempt(); return null; }
+    if (!data || data.schema !== SCHEMA) { clearAttempt(); return null; }
+    var course = window.getCourse(data.code);
+    if (!course) { clearAttempt(); return null; }
+    // The bank may have been edited since the attempt was saved; indices would no
+    // longer point at the same questions, so the attempt has to be discarded.
+    if (data.fingerprint !== E.bankFingerprint(course)) return { stale: true, code: data.code };
+    if (typeof data.deadline !== "number" || data.deadline - Date.now() <= 0) { clearAttempt(); return null; }
+    return { data: data, course: course };
   }
 
-  // ---------- course picker ----------
+  function resumeAttempt(saved){
+    state.course = saved.course;
+    indexScenarios();
+    state.examQuestions = saved.data.questions.map(function(rec){
+      var q = prepareFromIndex(rec.i, rec.o);
+      q.userAnswer = rec.a || [];
+      q.flagged = !!rec.f;
+      (rec.s || []).forEach(function(i){ q.struck[i] = true; });
+      return q;
+    });
+    state.current = Math.min(saved.data.current || 0, state.examQuestions.length - 1);
+    state.deadline = saved.data.deadline;
+    state.submitted = false;
+    enterExam();
+    announce("Resumed your previous attempt with " + fmtTime(remainingSeconds()) + " remaining.");
+  }
+
+  // ---------- course selection ----------
+  function indexScenarios(){
+    state.scenarioById = {};
+    if (E.isScenarioCourse(state.course)){
+      state.course.scenarios.forEach(function(s){ state.scenarioById[s.id] = s; });
+    }
+  }
+
   function renderCoursePicker(){
-    var wrap = document.getElementById("course-list");
+    var wrap = $("course-list");
     wrap.innerHTML = "";
     window.getCourses().forEach(function(c){
       var card = document.createElement("button");
       card.type = "button";
       card.className = "course-card";
       card.innerHTML =
-        '<div class="cc-code">' + escapeHtml(c.code) + '</div>' +
-        '<div class="cc-name">' + escapeHtml(c.name) + '</div>' +
-        '<div class="cc-tier">' + escapeHtml(c.tier) + '</div>' +
-        '<div class="cc-blurb">' + escapeHtml(c.blurb) + '</div>' +
-        '<div class="cc-meta">' +
+        '<span class="cc-code">' + escapeHtml(c.code) + '</span>' +
+        '<span class="cc-name">' + escapeHtml(c.name) + '</span>' +
+        '<span class="cc-tier">' + escapeHtml(c.tier) + '</span>' +
+        '<span class="cc-blurb">' + escapeHtml(c.blurb) + '</span>' +
+        '<span class="cc-meta">' +
           '<span>' + c.items + ' questions</span>' +
           '<span>' + c.minutes + ' min</span>' +
           '<span>' + c.questions.length + ' in bank</span>' +
-        '</div>';
+        '</span>';
       card.addEventListener("click", function(){ selectCourse(c.code); });
       wrap.appendChild(card);
     });
@@ -185,43 +157,35 @@
 
   function selectCourse(code){
     state.course = window.getCourse(code);
-    state.scenarioById = {};
-    if (window.isScenarioCourse(state.course)){
-      state.course.scenarios.forEach(function(s){ state.scenarioById[s.id] = s; });
-    }
+    indexScenarios();
     renderSplash();
-    hide("course-screen");
-    show("splash-screen");
+    hide("course-screen"); show("splash-screen");
+    $("splash-title").focus();
     window.scrollTo(0,0);
   }
 
   function renderSplash(){
     var c = state.course;
-    document.getElementById("splash-title").textContent =
-      "Practice for the " + c.name + " – " + c.tier + " exam";
-    document.getElementById("splash-code").textContent = c.code + "//";
-    document.getElementById("splash-sub").textContent =
+    $("splash-title").textContent = "Practice for the " + c.name + " – " + c.tier + " exam";
+    $("splash-code").textContent = c.code + "//";
+    $("splash-sub").textContent =
       c.items + " questions, drawn at random from a bank of " + c.questions.length +
-      ", weighted to match the official domain blueprint. Timed to " + c.minutes +
-      " minutes, with a question navigator, flag-for-review, and a strikeout tool.";
+      ", weighted to match the official domain blueprint. Timed to " + c.minutes + " minutes.";
+    $("stat-items").textContent = c.items;
+    $("stat-time").innerHTML = c.minutes + '<span style="font-size:.9rem">m</span>';
+    $("stat-pass").textContent = c.passScore;
+    $("stat-bank").textContent = c.questions.length;
 
-    document.getElementById("stat-items").textContent = c.items;
-    document.getElementById("stat-time").innerHTML = c.minutes + '<span style="font-size:.9rem">m</span>';
-    document.getElementById("stat-pass").textContent = c.passScore;
-    document.getElementById("stat-bank").textContent = c.questions.length;
-
-    var note = document.getElementById("format-note");
-    if (window.isScenarioCourse(c)){
+    var note = $("format-note");
+    if (E.isScenarioCourse(c)){
       note.textContent = "This exam is scenario-based: " + c.scenarioDraw.scenarios +
         " scenarios are drawn from a pool of " + c.scenarios.length + ", with " +
-        c.scenarioDraw.perScenario + " questions on each.";
+        c.scenarioDraw.perScenario + " questions on each. The draw is balanced by domain " +
+        "so each attempt still matches the published weights.";
       note.classList.remove("hidden");
-    } else {
-      note.classList.add("hidden");
-    }
+    } else note.classList.add("hidden");
 
-    var bar = document.getElementById("weight-bar");
-    var legend = document.getElementById("weight-legend");
+    var bar = $("weight-bar"), legend = $("weight-legend");
     bar.innerHTML = ""; legend.innerHTML = "";
     c.domains.forEach(function(d){
       var seg = document.createElement("div");
@@ -229,9 +193,7 @@
       seg.style.width = d.weight + "%";
       seg.style.background = colorFor(d.id);
       seg.textContent = d.weight >= 6 ? d.weight + "%" : "";
-      seg.title = d.name + " — " + d.weight + "%";
       bar.appendChild(seg);
-
       var item = document.createElement("div");
       item.className = "weight-legend-item";
       var count = d.examCount != null ? ", " + d.examCount + " Q" : "";
@@ -239,17 +201,25 @@
         escapeHtml(d.name) + ' <span style="color:var(--text-faint)">(' + d.weight + '%' + count + ')</span>';
       legend.appendChild(item);
     });
+    bar.setAttribute("aria-label",
+      "Domain weighting: " + c.domains.map(function(d){ return d.name + " " + d.weight + " percent"; }).join(", "));
   }
 
   // ---------- exam lifecycle ----------
   function startExam(){
-    var c = state.course;
-    state.examQuestions = buildExam(c);
+    state.examQuestions = buildAttempt();
     state.current = 0;
-    state.timeLeft = c.minutes * 60;
+    state.deadline = Date.now() + state.course.minutes * 60 * 1000;
     state.submitted = false;
-    document.getElementById("exam-code").textContent = c.code + "//";
-    hide("splash-screen"); hide("results-screen"); show("exam-screen");
+    saveAttempt();
+    enterExam();
+  }
+
+  function enterExam(){
+    $("exam-code").textContent = state.course.code + "//";
+    hide("course-screen"); hide("splash-screen");
+    hide("results-screen"); hide("presubmit-screen");
+    show("exam-screen");
     renderNavGrid();
     renderQuestion();
     startTimer();
@@ -260,163 +230,262 @@
     if (!state.submitted){ e.preventDefault(); e.returnValue = ""; }
   }
 
+  // ---------- timer ----------
+  // Derived from an absolute deadline. A decrementing counter loses time whenever the
+  // tab is throttled in the background or the device sleeps.
+  function remainingSeconds(){
+    return Math.max(0, Math.ceil((state.deadline - Date.now()) / 1000));
+  }
+
   function startTimer(){
+    if (state.timerId) clearInterval(state.timerId);
     updateTimerDisplay();
     state.timerId = setInterval(function(){
-      state.timeLeft--;
       updateTimerDisplay();
-      if (state.timeLeft <= 0){ clearInterval(state.timerId); submitExam(); }
+      if (remainingSeconds() <= 0){ clearInterval(state.timerId); submitExam(true); }
     }, 1000);
+    document.addEventListener("visibilitychange", onVisible);
   }
 
+  function onVisible(){
+    if (document.visibilityState === "visible" && !state.submitted){
+      updateTimerDisplay();
+      if (remainingSeconds() <= 0) submitExam(true);
+    }
+  }
+
+  var lastAnnouncedBand = null;
   function updateTimerDisplay(){
-    var el = document.getElementById("timer");
-    el.textContent = fmtTime(Math.max(0, state.timeLeft));
+    var left = remainingSeconds();
+    var el = $("timer");
+    el.textContent = fmtTime(left);
     el.classList.remove("warn","danger");
-    if (state.timeLeft <= 120) el.classList.add("danger");
-    else if (state.timeLeft <= 600) el.classList.add("warn");
+    var band = null;
+    if (left <= 120){ el.classList.add("danger"); band = "2"; }
+    else if (left <= 600){ el.classList.add("warn"); band = "10"; }
+    if (band && band !== lastAnnouncedBand){
+      lastAnnouncedBand = band;
+      announce(band + " minutes remaining.");
+    }
   }
 
-  // ---------- nav grid ----------
+  // ---------- navigator ----------
   function renderNavGrid(){
-    var grid = document.getElementById("nav-grid");
+    var grid = $("nav-grid");
     grid.innerHTML = "";
     state.examQuestions.forEach(function(q, i){
       var cell = document.createElement("button");
       cell.type = "button";
       cell.className = "nav-cell";
       cell.textContent = i + 1;
-      cell.setAttribute("aria-label", "Go to question " + (i+1));
+      // Roving tabindex: one stop for the whole grid, arrow keys move within it.
+      cell.tabIndex = (i === state.current) ? 0 : -1;
+      var status = q.userAnswer.length ? "answered" : "unanswered";
+      if (q.flagged) status += ", flagged";
+      cell.setAttribute("aria-label", "Question " + (i+1) + ", " + status);
+      if (i === state.current) cell.setAttribute("aria-current", "true");
       if (q.userAnswer.length) cell.classList.add("answered");
       if (q.flagged) cell.classList.add("flagged");
       if (i === state.current) cell.classList.add("current");
-      cell.addEventListener("click", function(){ state.current = i; renderQuestion(); });
+      cell.addEventListener("click", function(){ goTo(i); });
+      cell.addEventListener("keydown", function(ev){
+        var cols = 6, next = null;
+        if (ev.key === "ArrowRight") next = i + 1;
+        else if (ev.key === "ArrowLeft") next = i - 1;
+        else if (ev.key === "ArrowDown") next = i + cols;
+        else if (ev.key === "ArrowUp") next = i - cols;
+        else if (ev.key === "Home") next = 0;
+        else if (ev.key === "End") next = state.examQuestions.length - 1;
+        if (next === null) return;
+        ev.preventDefault();
+        next = Math.max(0, Math.min(state.examQuestions.length - 1, next));
+        goTo(next);
+        var cells = grid.querySelectorAll(".nav-cell");
+        if (cells[next]) cells[next].focus();
+      });
       grid.appendChild(cell);
     });
   }
 
-  // ---------- question rendering ----------
+  function goTo(i){
+    state.current = i;
+    renderQuestion();
+    saveAttempt();
+  }
+
+  // ---------- question ----------
   function renderQuestion(){
     var q = state.examQuestions[state.current];
-    document.getElementById("progress-txt").textContent =
-      "Question " + (state.current+1) + " / " + state.examQuestions.length;
+    $("progress-txt").textContent = "Question " + (state.current+1) + " / " + state.examQuestions.length;
+    $("domain-pill").textContent = domainName(q.domain);
+    $("type-pill").textContent = q.type === "m" ? "Select all that apply" : "Select one";
 
-    document.getElementById("domain-pill").textContent = domainName(q.domain);
-    document.getElementById("type-pill").textContent =
-      q.type === "m" ? "Select multiple" : "Select one";
-
-    var scWrap = document.getElementById("scenario-panel");
+    var scWrap = $("scenario-panel");
     if (q.scenario && state.scenarioById[q.scenario]){
       var sc = state.scenarioById[q.scenario];
-      document.getElementById("scenario-title").textContent = sc.title;
-      document.getElementById("scenario-text").textContent = sc.text;
+      $("scenario-title").textContent = sc.title;
+      $("scenario-text").textContent = sc.text;
       scWrap.classList.remove("hidden");
-    } else {
-      scWrap.classList.add("hidden");
-    }
+    } else scWrap.classList.add("hidden");
 
-    document.getElementById("q-text").textContent = q.question;
+    $("q-text").textContent = q.question;
+    $("q-legend").textContent =
+      "Question " + (state.current+1) + " of " + state.examQuestions.length + ". " +
+      (q.type === "m" ? "Select all that apply." : "Select one answer.");
 
-    var flagBtn = document.getElementById("flag-btn");
+    var flagBtn = $("flag-btn");
     flagBtn.classList.toggle("active", q.flagged);
+    flagBtn.setAttribute("aria-pressed", q.flagged ? "true" : "false");
     flagBtn.textContent = q.flagged ? "★ Flagged for review" : "☆ Flag for review";
 
-    var opts = document.getElementById("options");
+    var opts = $("options");
     opts.innerHTML = "";
     q.options.forEach(function(optText, idx){
+      var inputId = "opt-" + state.current + "-" + idx;
       var row = document.createElement("div");
       row.className = "option-row";
-      if (q.userAnswer.indexOf(idx) !== -1) row.classList.add("selected");
       if (q.struck[idx]) row.classList.add("struck");
 
-      var main = document.createElement("button");
-      main.type = "button";
-      main.className = "option-main";
-      main.innerHTML =
-        '<span class="option-mark ' + (q.type === "m" ? "checkbox" : "radio") + '"></span>' +
-        '<span class="option-text"></span>';
-      main.querySelector(".option-text").textContent = optText;
-      main.addEventListener("click", function(){ toggleAnswer(q, idx); });
+      var input = document.createElement("input");
+      input.type = q.type === "m" ? "checkbox" : "radio";
+      input.name = "q-" + state.current;
+      input.id = inputId;
+      input.className = "option-input";
+      input.checked = q.userAnswer.indexOf(idx) !== -1;
+      input.addEventListener("change", function(){ toggleAnswer(q, idx); });
+
+      var label = document.createElement("label");
+      label.className = "option-label";
+      label.setAttribute("for", inputId);
+      label.textContent = optText;
 
       var strike = document.createElement("button");
       strike.type = "button";
       strike.className = "strike-btn" + (q.struck[idx] ? " active" : "");
       strike.setAttribute("aria-pressed", q.struck[idx] ? "true" : "false");
-      strike.setAttribute("aria-label", "Strike out this option");
+      strike.setAttribute("aria-label", "Rule out option: " + optText);
       strike.textContent = "S̶";
-      strike.addEventListener("click", function(ev){
-        ev.stopPropagation();
+      strike.addEventListener("click", function(){
         q.struck[idx] = !q.struck[idx];
-        renderQuestion();
+        row.classList.toggle("struck", !!q.struck[idx]);
+        strike.classList.toggle("active", !!q.struck[idx]);
+        strike.setAttribute("aria-pressed", q.struck[idx] ? "true" : "false");
+        saveAttempt();
       });
 
-      row.appendChild(main);
+      row.appendChild(input);
+      row.appendChild(label);
       row.appendChild(strike);
       opts.appendChild(row);
     });
 
-    document.getElementById("prev-btn").disabled = state.current === 0;
-    document.getElementById("next-btn").textContent =
-      state.current === state.examQuestions.length - 1 ? "Finish" : "Next →";
-
+    $("prev-btn").disabled = state.current === 0;
+    $("next-btn").textContent =
+      state.current === state.examQuestions.length - 1 ? "Review & submit" : "Next →";
     renderNavGrid();
   }
 
   function toggleAnswer(q, idx){
-    if (q.type === "s"){
-      q.userAnswer = [idx];
-    } else {
+    if (q.type === "s") q.userAnswer = [idx];
+    else {
       var pos = q.userAnswer.indexOf(idx);
-      if (pos === -1) q.userAnswer.push(idx);
-      else q.userAnswer.splice(pos, 1);
+      if (pos === -1) q.userAnswer.push(idx); else q.userAnswer.splice(pos, 1);
     }
-    renderQuestion();
+    renderNavGrid();
+    saveAttempt();
   }
 
   function toggleFlag(){
-    state.examQuestions[state.current].flagged = !state.examQuestions[state.current].flagged;
+    var q = state.examQuestions[state.current];
+    q.flagged = !q.flagged;
     renderQuestion();
+    saveAttempt();
+    announce(q.flagged ? "Question flagged." : "Flag removed.");
   }
 
-  function goPrev(){ if (state.current > 0){ state.current--; renderQuestion(); } }
+  function goPrev(){ if (state.current > 0) goTo(state.current - 1); }
   function goNext(){
-    if (state.current < state.examQuestions.length - 1){ state.current++; renderQuestion(); }
-    else confirmSubmit();
+    if (state.current < state.examQuestions.length - 1) goTo(state.current + 1);
+    else openPresubmit();
   }
 
-  function confirmSubmit(){
-    var unanswered = state.examQuestions.filter(function(q){ return q.userAnswer.length === 0; }).length;
-    var msg = unanswered > 0
-      ? "You have " + unanswered + " unanswered question(s). Submit anyway?"
-      : "Submit the exam now?";
-    if (window.confirm(msg)) submitExam();
+  // ---------- pre-submission review ----------
+  function openPresubmit(){
+    var unanswered = [], flagged = [];
+    state.examQuestions.forEach(function(q, i){
+      if (!q.userAnswer.length) unanswered.push(i);
+      if (q.flagged) flagged.push(i);
+    });
+
+    $("presubmit-summary").textContent =
+      state.examQuestions.length + " questions · " +
+      (state.examQuestions.length - unanswered.length) + " answered · " +
+      unanswered.length + " unanswered · " + flagged.length + " flagged";
+
+    function fill(containerId, list, emptyMsg){
+      var el = $(containerId);
+      el.innerHTML = "";
+      if (!list.length){
+        el.innerHTML = '<p class="presubmit-empty">' + emptyMsg + '</p>';
+        return;
+      }
+      var grid = document.createElement("div");
+      grid.className = "presubmit-grid";
+      list.forEach(function(i){
+        var b = document.createElement("button");
+        b.type = "button";
+        b.className = "nav-cell";
+        b.textContent = i + 1;
+        b.setAttribute("aria-label", "Go to question " + (i+1));
+        b.addEventListener("click", function(){
+          hide("presubmit-screen"); show("exam-screen");
+          goTo(i);
+          $("q-text").focus();
+        });
+        grid.appendChild(b);
+      });
+      el.appendChild(grid);
+    }
+
+    fill("presubmit-unanswered", unanswered, "Every question has an answer.");
+    fill("presubmit-flagged", flagged, "No questions are flagged.");
+
+    $("presubmit-timer").textContent = fmtTime(remainingSeconds()) + " remaining";
+    hide("exam-screen"); show("presubmit-screen");
+    $("presubmit-heading").focus();
+    window.scrollTo(0,0);
+  }
+
+  function closePresubmit(){
+    hide("presubmit-screen"); show("exam-screen");
+    renderQuestion();
   }
 
   // ---------- scoring ----------
   function isCorrect(q){
-    var a = q.userAnswer.slice().sort(function(x,y){return x-y;});
-    var c = q.correct.slice().sort(function(x,y){return x-y;});
+    var a = q.userAnswer.slice().sort(), c = q.correct.slice().sort();
     if (a.length !== c.length) return false;
-    for (var i=0;i<a.length;i++){ if (a[i] !== c[i]) return false; }
+    for (var i=0;i<a.length;i++) if (a[i] !== c[i]) return false;
     return true;
   }
 
-  function submitExam(){
+  function submitExam(auto){
     if (state.submitted) return;
     state.submitted = true;
     clearInterval(state.timerId);
+    document.removeEventListener("visibilitychange", onVisible);
     window.removeEventListener("beforeunload", beforeUnloadHandler);
+    clearAttempt();
     renderResults();
-    hide("exam-screen"); show("results-screen");
+    hide("exam-screen"); hide("presubmit-screen"); show("results-screen");
+    $("results-heading").focus();
     window.scrollTo(0,0);
+    if (auto) announce("Time expired. Your exam was submitted automatically.");
   }
 
   function renderResults(){
     var c = state.course;
-    var total = state.examQuestions.length;
-    var correctCount = 0;
-    var byDomain = {};
-
+    var total = state.examQuestions.length, correctCount = 0, byDomain = {};
     state.examQuestions.forEach(function(q){
       if (!byDomain[q.domain]) byDomain[q.domain] = { correct:0, total:0 };
       byDomain[q.domain].total++;
@@ -427,94 +496,169 @@
     var scaled = Math.round(100 + (correctCount/total) * 900);
     var pass = scaled >= c.passScore;
 
-    document.getElementById("score-pct").textContent = pct + "%";
-    document.getElementById("score-detail").textContent =
+    $("score-pct").textContent = pct + "%";
+    $("score-detail").textContent =
       correctCount + " / " + total + " correct · approx. scaled score " + scaled +
       " / 1000 (" + c.passScore + " to pass)";
-    var badge = document.getElementById("pass-badge");
+    var badge = $("pass-badge");
     badge.textContent = pass ? "Likely pass" : "Likely fail";
     badge.className = "badge " + (pass ? "pass" : "fail");
 
-    var tbody = document.getElementById("domain-table-body");
+    var tbody = $("domain-table-body");
     tbody.innerHTML = "";
     c.domains.forEach(function(d){
       var stat = byDomain[d.id];
-      if (!stat) return; // scenario draws may not touch every domain
+      if (!stat) return;
       var dpct = stat.total ? Math.round((stat.correct/stat.total)*100) : 0;
       var tr = document.createElement("tr");
       tr.innerHTML =
-        '<td>' + escapeHtml(d.name) + '</td>' +
-        '<td style="font-family:var(--mono)">' + stat.correct + ' / ' + stat.total + '</td>' +
-        '<td style="width:160px">' +
-          '<div class="mini-bar-track"><div class="mini-bar-fill" style="width:' + dpct +
-          '%; background:' + colorFor(d.id) + '"></div></div>' +
-        '</td>' +
-        '<td style="font-family:var(--mono); text-align:right">' + dpct + '%</td>';
+        '<td data-label="Domain">' + escapeHtml(d.name) + '</td>' +
+        '<td data-label="Correct" style="font-family:var(--mono)">' + stat.correct + ' / ' + stat.total + '</td>' +
+        '<td data-label="Progress"><div class="mini-bar-track"><div class="mini-bar-fill" style="width:' +
+          dpct + '%; background:' + colorFor(d.id) + '"></div></div></td>' +
+        '<td data-label="Percent" style="font-family:var(--mono); text-align:right">' + dpct + '%</td>';
       tbody.appendChild(tr);
     });
 
-    var reviewList = document.getElementById("review-list");
-    reviewList.innerHTML = "";
+    renderReviewList();
+  }
+
+  function renderReviewList(){
+    var list = $("review-list");
+    list.innerHTML = "";
+    var shown = 0;
     state.examQuestions.forEach(function(q, i){
       var correct = isCorrect(q);
+      if (state.reviewFilter === "incorrect" && correct) return;
+      if (state.reviewFilter === "flagged" && !q.flagged) return;
+      if (state.reviewFilter === "unanswered" && q.userAnswer.length) return;
+      shown++;
+
       var item = document.createElement("div");
       item.className = "review-item";
+      var bodyId = "review-body-" + i;
 
       var head = document.createElement("button");
       head.type = "button";
       head.className = "review-head";
+      head.setAttribute("aria-expanded", "false");
+      head.setAttribute("aria-controls", bodyId);
       head.innerHTML =
         '<span class="status-dot ' + (correct ? "correct" : "incorrect") + '"></span>' +
         '<span class="qnum">Q' + (i+1) + '</span>' +
-        '<span class="q-summary">' + escapeHtml(q.question) + '</span>';
+        '<span class="q-summary">' + escapeHtml(q.question) + '</span>' +
+        '<span class="sr-only">' + (correct ? "Correct" : "Incorrect") + '</span>';
 
       var body = document.createElement("div");
       body.className = "review-body hidden";
+      body.id = bodyId;
 
-      var yourAnsText = q.userAnswer.length
+      var yourAns = q.userAnswer.length
         ? q.userAnswer.map(function(idx){ return q.options[idx]; }).join("; ")
         : "(no answer selected)";
-      var correctAnsText = q.correct.map(function(idx){ return q.options[idx]; }).join("; ");
+      var correctAns = q.correct.map(function(idx){ return q.options[idx]; }).join("; ");
       var scLine = (q.scenario && state.scenarioById[q.scenario])
-        ? '<div><strong>Scenario:</strong> ' + escapeHtml(state.scenarioById[q.scenario].title) + '</div>'
-        : '';
+        ? '<div><strong>Scenario:</strong> ' + escapeHtml(state.scenarioById[q.scenario].title) + '</div>' : '';
 
       body.innerHTML =
-        '<div><strong>Domain:</strong> ' + escapeHtml(domainName(q.domain)) + '</div>' +
-        scLine +
-        '<div class="your-ans"><strong>Your answer:</strong> ' + escapeHtml(yourAnsText) + '</div>' +
-        '<div class="correct-ans"><strong>Correct answer:</strong> ' + escapeHtml(correctAnsText) + '</div>' +
+        '<div><strong>Domain:</strong> ' + escapeHtml(domainName(q.domain)) + '</div>' + scLine +
+        '<div class="your-ans"><strong>Your answer:</strong> ' + escapeHtml(yourAns) + '</div>' +
+        '<div class="correct-ans"><strong>Correct answer:</strong> ' + escapeHtml(correctAns) + '</div>' +
         '<div class="exp">' + escapeHtml(q.explanation) + '</div>';
 
-      head.addEventListener("click", function(){ body.classList.toggle("hidden"); });
-      item.appendChild(head);
-      item.appendChild(body);
-      reviewList.appendChild(item);
+      head.addEventListener("click", function(){
+        var open = body.classList.toggle("hidden");
+        head.setAttribute("aria-expanded", open ? "false" : "true");
+      });
+
+      item.appendChild(head); item.appendChild(body);
+      list.appendChild(item);
     });
+
+    if (!shown){
+      list.innerHTML = '<p class="presubmit-empty">Nothing matches this filter.</p>';
+    }
+    $("review-count").textContent = shown + " shown";
   }
 
-  function retake(){
-    hide("results-screen"); show("splash-screen");
-    window.scrollTo(0,0);
+  function setFilter(f, btn){
+    state.reviewFilter = f;
+    Array.prototype.forEach.call(document.querySelectorAll(".filter-btn"), function(b){
+      b.classList.toggle("active", b === btn);
+      b.setAttribute("aria-pressed", b === btn ? "true" : "false");
+    });
+    renderReviewList();
   }
 
+  // ---------- navigation between screens ----------
+  function retake(){ hide("results-screen"); show("splash-screen"); window.scrollTo(0,0); }
   function changeCourse(){
     hide("results-screen"); hide("splash-screen"); show("course-screen");
     window.scrollTo(0,0);
   }
 
-  // ---------- wire up ----------
+  function abandonAttempt(){
+    if (!window.confirm("Discard the attempt in progress?")) return;
+    state.submitted = true;
+    clearInterval(state.timerId);
+    window.removeEventListener("beforeunload", beforeUnloadHandler);
+    clearAttempt();
+    hide("exam-screen"); hide("presubmit-screen"); show("course-screen");
+  }
+
+  // ---------- boot ----------
   document.addEventListener("DOMContentLoaded", function(){
     renderCoursePicker();
-    document.getElementById("start-btn").addEventListener("click", startExam);
-    document.getElementById("prev-btn").addEventListener("click", goPrev);
-    document.getElementById("next-btn").addEventListener("click", goNext);
-    document.getElementById("flag-btn").addEventListener("click", toggleFlag);
-    document.getElementById("submit-btn").addEventListener("click", confirmSubmit);
-    document.getElementById("retake-btn").addEventListener("click", retake);
-    document.getElementById("retake-btn-2").addEventListener("click", retake);
-    document.getElementById("change-course-btn").addEventListener("click", changeCourse);
-    document.getElementById("change-course-btn-2").addEventListener("click", changeCourse);
+
+    $("start-btn").addEventListener("click", startExam);
+    $("prev-btn").addEventListener("click", goPrev);
+    $("next-btn").addEventListener("click", goNext);
+    $("flag-btn").addEventListener("click", toggleFlag);
+    $("submit-btn").addEventListener("click", openPresubmit);
+    $("presubmit-back").addEventListener("click", closePresubmit);
+    $("presubmit-submit").addEventListener("click", function(){ submitExam(false); });
+    $("retake-btn").addEventListener("click", retake);
+    $("retake-btn-2").addEventListener("click", retake);
+    $("change-course-btn").addEventListener("click", changeCourse);
+    $("change-course-btn-2").addEventListener("click", changeCourse);
+    $("abandon-btn").addEventListener("click", abandonAttempt);
+    $("nav-toggle").addEventListener("click", function(){
+      var panel = $("nav-panel");
+      var open = panel.classList.toggle("open");
+      this.setAttribute("aria-expanded", open ? "true" : "false");
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll(".filter-btn"), function(b){
+      b.addEventListener("click", function(){ setFilter(b.dataset.filter, b); });
+    });
+
+    // Offer to resume an interrupted attempt.
+    var saved = readSavedAttempt();
+    if (saved && saved.stale){
+      $("resume-bar").classList.remove("hidden");
+      $("resume-text").textContent =
+        "A saved attempt for " + saved.code + " could not be restored because the question bank has changed since.";
+      $("resume-go").classList.add("hidden");
+      $("resume-dismiss").textContent = "Dismiss";
+      $("resume-dismiss").addEventListener("click", function(){
+        clearAttempt(); $("resume-bar").classList.add("hidden");
+      });
+    } else if (saved){
+      $("resume-bar").classList.remove("hidden");
+      $("resume-text").textContent =
+        "You have an unfinished " + saved.course.code + " attempt with " +
+        fmtTime(Math.max(0, Math.ceil((saved.data.deadline - Date.now())/1000))) + " remaining.";
+      $("resume-go").addEventListener("click", function(){
+        $("resume-bar").classList.add("hidden");
+        resumeAttempt(saved);
+      });
+      $("resume-dismiss").addEventListener("click", function(){
+        clearAttempt(); $("resume-bar").classList.add("hidden");
+      });
+    }
+
+    // Persist periodically as a backstop against an abrupt close.
+    setInterval(function(){ if (!state.submitted && state.course) saveAttempt(); }, 5000);
   });
 
 })();

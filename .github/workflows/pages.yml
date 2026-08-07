@@ -2,7 +2,8 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: ["master"]
+    branches: ["master", "main"]
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -15,7 +16,42 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Validation is a separate job so a pull request gets the same checks without
+  # deploying, and so a failing bank can never reach the published site.
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dev dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Check JavaScript syntax
+        run: |
+          node --check courses.js
+          node --check exam.js
+          node --check app.js
+          node --check tools/audit.js
+          for f in data/*.js; do node --check "$f"; done
+
+      - name: Audit question banks
+        run: node tools/audit.js
+
+      - name: Engine and persistence tests
+        run: node tools/test.js
+
+      - name: End-to-end tests
+        run: node tools/e2e.js
+
   deploy:
+    needs: validate
+    if: github.event_name != 'pull_request'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -23,12 +59,24 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # Publish only the runtime files. Deploying the repository root would also
+      # expose the generator scripts and audit tooling through the site.
+      - name: Stage runtime assets
+        run: |
+          mkdir -p _site/data
+          cp index.html style.css courses.js exam.js app.js _site/
+          cp data/*.js _site/data/
+          cp LICENSE _site/ 2>/dev/null || true
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: "."
+          path: "_site"
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

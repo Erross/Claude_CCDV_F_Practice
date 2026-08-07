@@ -1,0 +1,213 @@
+// End-to-end tests driving the real app.js in a headless DOM.
+//   npm install && node tools/e2e.js
+//
+// tools/test.js covers the engine in isolation; this covers what a candidate
+// actually touches: rendering, answering, persistence, resume, and submission.
+
+const fs = require("fs"), path = require("path");
+let JSDOM;
+try { ({ JSDOM } = require("jsdom")); }
+catch (e) {
+  console.log("\nend-to-end: skipped (jsdom not installed — run `npm install`)");
+  process.exit(0);
+}
+const ROOT = path.join(__dirname, "..");
+
+let pass = 0, fail = 0;
+const t = (n, f) => { try { f(); pass++; console.log("  pass  " + n); }
+  catch (e) { fail++; console.log("  FAIL  " + n + "\n        " + e.message); } };
+const assert = (c, m) => { if (!c) throw new Error(m || "assertion failed"); };
+
+function boot() {
+  const dom = new JSDOM(fs.readFileSync(path.join(ROOT, "index.html"), "utf8"), {
+    runScripts: "outside-only", url: "https://example.test/"
+  });
+  const w = dom.window;
+  // minimal localStorage
+  const store = {};
+  Object.defineProperty(w, "localStorage", { value: {
+    getItem: k => (k in store ? store[k] : null),
+    setItem: (k, v) => { store[k] = String(v); },
+    removeItem: k => { delete store[k]; }
+  }, configurable: true });
+  ["courses.js","exam.js","data/ccao-f.js","data/ccdv-f.js","data/ccar-f.js","data/ccar-p.js","app.js"]
+    .forEach(f => w.eval(fs.readFileSync(path.join(ROOT, f), "utf8")));
+  w.document.dispatchEvent(new w.Event("DOMContentLoaded"));
+  return { w, d: w.document, store };
+}
+
+console.log("\nend-to-end (jsdom, real app.js)");
+
+t("course picker renders all four certifications", () => {
+  const { d } = boot();
+  const cards = d.querySelectorAll(".course-card");
+  assert(cards.length === 4, "expected 4 course cards, got " + cards.length);
+});
+
+t("selecting a course reveals the splash with its figures", () => {
+  const { d } = boot();
+  d.querySelectorAll(".course-card")[1].click();
+  assert(!d.getElementById("splash-screen").classList.contains("hidden"), "splash hidden");
+  assert(d.getElementById("stat-items").textContent.length > 0, "item count empty");
+});
+
+t("starting an exam renders semantic inputs and a full navigator", () => {
+  const { d } = boot();
+  d.querySelectorAll(".course-card")[1].click();
+  d.getElementById("start-btn").click();
+  assert(!d.getElementById("exam-screen").classList.contains("hidden"), "exam hidden");
+  const inputs = d.querySelectorAll("#options input");
+  assert(inputs.length === 4, "expected 4 option inputs, got " + inputs.length);
+  assert(["radio","checkbox"].includes(inputs[0].type), "options are not native inputs");
+  assert(d.querySelectorAll(".nav-cell").length > 0, "navigator empty");
+  assert(d.querySelector("#options label").getAttribute("for") === inputs[0].id, "label not bound to input");
+});
+
+t("answering marks the navigator and persists the attempt", () => {
+  const { d, store } = boot();
+  d.querySelectorAll(".course-card")[1].click();
+  d.getElementById("start-btn").click();
+  const input = d.querySelector("#options input");
+  input.checked = true;
+  input.dispatchEvent(new (d.defaultView.Event)("change"));
+  assert(d.querySelector(".nav-cell").classList.contains("answered"), "navigator not updated");
+  const saved = JSON.parse(store["claude-exams:v1:active-attempt"]);
+  assert(saved.questions.some(q => q.a.length), "answer not persisted");
+  assert(typeof saved.deadline === "number" && saved.deadline > Date.now(), "no future deadline saved");
+  assert(!JSON.stringify(saved).includes("?"), "saved payload appears to contain question text");
+});
+
+t("a saved attempt stores indices, not question text", () => {
+  const { d, store } = boot();
+  d.querySelectorAll(".course-card")[0].click();
+  d.getElementById("start-btn").click();
+  const saved = JSON.parse(store["claude-exams:v1:active-attempt"]);
+  saved.questions.forEach(q => {
+    assert(typeof q.i === "number", "question not stored by index");
+    assert(Array.isArray(q.o) && q.o.length === 4, "option order not stored");
+  });
+});
+
+t("timer is derived from a deadline, not a decrementing counter", () => {
+  const { d, store } = boot();
+  d.querySelectorAll(".course-card")[1].click();
+  d.getElementById("start-btn").click();
+  const before = d.getElementById("timer").textContent;
+  const saved = JSON.parse(store["claude-exams:v1:active-attempt"]);
+  const expected = Math.ceil((saved.deadline - Date.now()) / 1000);
+  const [m, s] = before.split(":").map(Number);
+  assert(Math.abs((m * 60 + s) - expected) <= 2, "timer " + before + " does not match deadline");
+});
+
+t("flagging is reflected in the navigator and aria state", () => {
+  const { d } = boot();
+  d.querySelectorAll(".course-card")[1].click();
+  d.getElementById("start-btn").click();
+  d.getElementById("flag-btn").click();
+  assert(d.getElementById("flag-btn").getAttribute("aria-pressed") === "true", "aria-pressed not set");
+  assert(d.querySelector(".nav-cell").classList.contains("flagged"), "flag not shown in navigator");
+});
+
+t("review & submit opens the pre-submission screen, not a confirm dialog", () => {
+  const { d, w } = boot();
+  let confirmed = false;
+  w.confirm = () => { confirmed = true; return true; };
+  d.querySelectorAll(".course-card")[1].click();
+  d.getElementById("start-btn").click();
+  d.getElementById("submit-btn").click();
+  assert(!d.getElementById("presubmit-screen").classList.contains("hidden"), "presubmit not shown");
+  assert(confirmed === false, "fell back to a confirm() dialog");
+  assert(d.getElementById("presubmit-summary").textContent.includes("unanswered"), "summary missing");
+});
+
+t("submitting scores the exam and clears the saved attempt", () => {
+  const { d, store } = boot();
+  d.querySelectorAll(".course-card")[1].click();
+  d.getElementById("start-btn").click();
+  d.getElementById("submit-btn").click();
+  d.getElementById("presubmit-submit").click();
+  assert(!d.getElementById("results-screen").classList.contains("hidden"), "results hidden");
+  assert(d.getElementById("score-pct").textContent.includes("%"), "no score shown");
+  assert(!("claude-exams:v1:active-attempt" in store), "saved attempt not cleared after submit");
+  assert(d.querySelectorAll("#domain-table-body tr").length > 0, "domain table empty");
+});
+
+t("results filters narrow the review list", () => {
+  const { d } = boot();
+  d.querySelectorAll(".course-card")[1].click();
+  d.getElementById("start-btn").click();
+  d.getElementById("submit-btn").click();
+  d.getElementById("presubmit-submit").click();
+  const all = d.querySelectorAll("#review-list .review-item").length;
+  assert(all > 0, "review list empty");
+  d.querySelector('.filter-btn[data-filter="flagged"]').click();
+  const flagged = d.querySelectorAll("#review-list .review-item").length;
+  assert(flagged < all, "flagged filter did not narrow the list");
+  d.querySelector('.filter-btn[data-filter="all"]').click();
+  assert(d.querySelectorAll("#review-list .review-item").length === all, "filter did not reset");
+});
+
+t("an interrupted attempt is offered for resume on reload", () => {
+  const dom1 = boot();
+  dom1.d.querySelectorAll(".course-card")[1].click();
+  dom1.d.getElementById("start-btn").click();
+  const raw = dom1.store["claude-exams:v1:active-attempt"];
+  assert(raw, "nothing saved to resume from");
+
+  // fresh page load carrying the same storage
+  const dom2 = new JSDOM(fs.readFileSync(path.join(ROOT, "index.html"), "utf8"),
+    { runScripts: "outside-only", url: "https://example.test/" });
+  const w2 = dom2.window, store2 = { "claude-exams:v1:active-attempt": raw };
+  Object.defineProperty(w2, "localStorage", { value: {
+    getItem: k => (k in store2 ? store2[k] : null),
+    setItem: (k, v) => { store2[k] = String(v); },
+    removeItem: k => { delete store2[k]; }
+  }, configurable: true });
+  ["courses.js","exam.js","data/ccao-f.js","data/ccdv-f.js","data/ccar-f.js","data/ccar-p.js","app.js"]
+    .forEach(f => w2.eval(fs.readFileSync(path.join(ROOT, f), "utf8")));
+  w2.document.dispatchEvent(new w2.Event("DOMContentLoaded"));
+
+  const bar = w2.document.getElementById("resume-bar");
+  assert(!bar.classList.contains("hidden"), "resume bar not offered");
+  w2.document.getElementById("resume-go").click();
+  assert(!w2.document.getElementById("exam-screen").classList.contains("hidden"), "resume did not enter exam");
+  assert(w2.document.querySelectorAll(".nav-cell").length > 0, "resumed exam has no questions");
+});
+
+t("a stale bank invalidates the saved attempt instead of restoring it", () => {
+  const dom1 = boot();
+  dom1.d.querySelectorAll(".course-card")[1].click();
+  dom1.d.getElementById("start-btn").click();
+  const saved = JSON.parse(dom1.store["claude-exams:v1:active-attempt"]);
+  saved.fingerprint = "TAMPERED";
+
+  const dom2 = new JSDOM(fs.readFileSync(path.join(ROOT, "index.html"), "utf8"),
+    { runScripts: "outside-only", url: "https://example.test/" });
+  const w2 = dom2.window, store2 = { "claude-exams:v1:active-attempt": JSON.stringify(saved) };
+  Object.defineProperty(w2, "localStorage", { value: {
+    getItem: k => (k in store2 ? store2[k] : null),
+    setItem: (k, v) => { store2[k] = String(v); },
+    removeItem: k => { delete store2[k]; }
+  }, configurable: true });
+  ["courses.js","exam.js","data/ccao-f.js","data/ccdv-f.js","data/ccar-f.js","data/ccar-p.js","app.js"]
+    .forEach(f => w2.eval(fs.readFileSync(path.join(ROOT, f), "utf8")));
+  w2.document.dispatchEvent(new w2.Event("DOMContentLoaded"));
+
+  const txt = w2.document.getElementById("resume-text").textContent;
+  assert(txt.includes("could not be restored"), "stale attempt was not rejected: " + txt);
+  assert(w2.document.getElementById("resume-go").classList.contains("hidden"), "resume button still offered");
+});
+
+t("scenario course shows its scenario panel", () => {
+  const { d } = boot();
+  const codes = Array.from(d.querySelectorAll(".course-card .cc-code")).map(e => e.textContent);
+  const i = codes.indexOf("CCAR-F");
+  assert(i >= 0, "CCAR-F card not found");
+  d.querySelectorAll(".course-card")[i].click();
+  d.getElementById("start-btn").click();
+  assert(!d.getElementById("scenario-panel").classList.contains("hidden"), "scenario panel hidden");
+  assert(d.getElementById("scenario-text").textContent.length > 50, "scenario text missing");
+});
+
+console.log("\n" + pass + " passed, " + fail + " failed");
+process.exit(fail ? 1 : 0);

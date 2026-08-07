@@ -18,13 +18,18 @@ Free, timed, unofficial practice exams for **all four Anthropic Claude certifica
 - Draws a **fresh exam at random** every time you start, sampling each domain **proportionally to its official exam weight**
 - Architect Foundations reproduces the real exam's **scenario structure**: four scenarios drawn from a pool of six, with a block of questions on each. The draw is **stratified by domain**, so every exam reproduces the published domain weights rather than inheriting whatever mix the chosen scenarios happen to contain
 - Renders **single-select (radio) and multi-select (checkbox)** questions correctly, matching the real exam's "select N" format
-- **120-minute countdown timer** that turns amber under 10 minutes, red under 2, and auto-submits at zero
+- **Countdown timer** matching each exam's limit, turning amber under 10 minutes, red under 2, and auto-submitting at zero
 - A **question navigator grid** (like real Pearson VUE-style testing software) showing answered / unanswered / flagged / current state, with click-to-jump
 - **Strikeout tool** — cross out an option you've ruled out without it counting as your answer
 - **Flag for review** on any question
 - A **results page** with an overall score, an approximate scaled score (100–1000, 720 to pass, clearly labeled as an approximation), and a **per-domain breakdown table** so you know exactly what to restudy
 - A full **answer review** — every question, your answer vs. the correct answer, and a one-line rationale, expandable per item
 - Shuffles both **question order and option order** on every attempt, so you can't just memorize position
+- **Resumable** — your attempt and its deadline are saved locally, so closing the tab by accident doesn't lose your progress
+- **Deadline-based timer** that stays accurate through background tabs and device sleep, rather than counting down per tick
+- **Pre-submission review** listing unanswered and flagged questions before you commit
+- **Keyboard and screen-reader accessible** — native radio/checkbox controls, arrow-key navigation in the question grid, live announcements for time warnings
+- **Filterable answer review** — all, incorrect, flagged, or unanswered
 
 ## Why it exists
 
@@ -41,25 +46,32 @@ python3 -m http.server 8000
 
 ## Deploying to GitHub Pages
 
-This repo includes `.github/workflows/pages.yml`, which auto-builds and deploys on every push to `main` — no branch/folder juggling required.
+This repo includes `.github/workflows/pages.yml`, which validates then deploys on every push. Pull requests run the same validation without deploying, and only the runtime files are published — the generator scripts and tooling stay out of the deployed site.
 
 1. Push this folder to the root of your repo (commands below).
 2. In the repo, go to **Settings → Pages**.
 3. Under **Build and deployment**, set **Source** to **"GitHub Actions"** (not "Deploy from a branch").
 4. Push to `main` (or go to the **Actions** tab and run the "Deploy to GitHub Pages" workflow manually via **Run workflow**).
-5. Your practice exam will be live at `https://erross.github.io/Claude_CCDV_F_Pracitce/` within a minute or two. Check the **Actions** tab for build status, and the green URL under **Settings → Pages** once it's live.
+5. Your practice exam will be live at `https://erross.github.io/Claude_CCDV_F_Practice/` within a minute or two. Check the **Actions** tab for build status, and the green URL under **Settings → Pages** once it's live.
 
 ## File structure
 
 ```
-├── index.html      # four screens: course picker, splash, exam, results
+├── index.html      # five screens: course picker, splash, exam, pre-submit, results
 ├── style.css       # all styling
-├── app.js          # exam logic: weighted + scenario draw, timer, scoring, results
 ├── courses.js      # course registry
+├── exam.js         # shared draw engine — used by both the app and the tooling
+├── app.js          # UI: rendering, timer, persistence, scoring, results
 ├── data/           # one question bank per certification
-├── tools/audit.js  # quality harness (run: node tools/audit.js)
+├── tools/
+│   ├── audit.js    # question-bank quality harness
+│   ├── test.js     # engine and persistence tests
+│   └── e2e.js      # headless browser tests driving the real app
 └── README.md
 ```
+
+`exam.js` is deliberately shared: the audit measures the same draw the candidate
+receives, rather than a second implementation that could drift from it.
 
 ## Adding or editing questions
 
@@ -79,7 +91,25 @@ Questions live in `data/<code>.js` as a flat array on the course object. Each en
 
 Each course lives in `data/<code>.js` and registers itself via `registerCourse({...})`. Update `examCount` on a course's domains to change how many questions it draws — the values are apportioned from the official blueprint weights by largest remainder and sum to that exam's item count.
 
-After any change, run `node tools/audit.js`. It checks structural integrity, answer-length bias, duplicate and near-duplicate options, conceptual duplication between questions, truncated correct answers, absolute-word tells, positional explanations, sequence-item permutations, blueprint coverage, **whether the generated exam actually reproduces the published domain weights**, and simulated draws per course.
+After any change, run `npm run check` — syntax, bank audit, engine tests, and headless
+browser tests. CI runs the same gate and **will not deploy if any of it fails**.
+
+`node tools/audit.js` alone runs the bank checks. It checks structural integrity, answer-length bias, duplicate and near-duplicate options, conceptual duplication between questions, truncated correct answers, absolute-word tells, positional explanations, sequence-item permutations, blueprint coverage, **whether the generated exam actually reproduces the published domain weights**, and simulated draws per course.
+
+## Local storage and limits
+
+An in-progress attempt is saved to `localStorage` under `claude-exams:v1:active-attempt`,
+keyed by a fingerprint of the question bank. It stores question **indices**, option order,
+your answers, flags, strikeouts and the deadline — never duplicated question text. If the
+bank changes underneath a saved attempt, it is rejected rather than silently restored.
+
+That means progress is **per browser and per device**. It does not sync, and clearing site
+data removes it. Private browsing may not preserve it at all.
+
+Because this is a static site, the answer keys are delivered to the browser and can be read
+by anyone who inspects the page. That is fine for a practice tool — it simply means this
+cannot be used as a proctored or authoritative assessment without moving question selection
+and scoring to a server.
 
 ## Accuracy notes
 
