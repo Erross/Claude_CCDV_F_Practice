@@ -6,6 +6,7 @@
 const path = require("path");
 global.window = global;
 require(path.join(__dirname, "..", "courses.js"));
+require(path.join(__dirname, "..", "catalog.js"));
 const E = require(path.join(__dirname, "..", "exam.js"));
 for (const f of ["ccao-f", "ccdv-f", "ccar-f", "ccar-p"]) {
   try { require(path.join(__dirname, "..", "data", f + ".js")); } catch (e) {}
@@ -22,6 +23,24 @@ function eq(a, b, msg) {
 }
 
 const courses = global.getCourses();
+
+console.log("\nrelease catalog");
+
+t("catalog metadata matches every repository bank", () => {
+  const catalog = global.getCourseCatalog();
+  eq(catalog.length, 4, "catalog size");
+  eq(catalog.filter(c => c.status === "available").length, 3, "released course count");
+  eq(catalog.filter(c => c.status !== "available").length, 1, "gated course count");
+  catalog.forEach(meta => {
+    const course = global.getCourse(meta.code);
+    assert(Array.isArray(course.questions), meta.code + " repository bank was not loaded for tests");
+    eq(course.questions.length, meta.bankSize, meta.code + " catalog bank size drifted");
+    eq(course.items, meta.items, meta.code + " item count drifted");
+    eq(course.minutes, meta.minutes, meta.code + " time limit drifted");
+    eq(course.passScore, meta.passScore, meta.code + " pass score drifted");
+    eq(JSON.stringify(course.domains), JSON.stringify(meta.domains), meta.code + " domains drifted");
+  });
+});
 
 console.log("\nexam engine");
 
@@ -175,6 +194,25 @@ t("the allocator reports infeasibility rather than silently under-filling", () =
   const a = E.allocate([3, 3], [2, 2, 2], [[1, 1, 0], [1, 1, 0]]);
   assert(!a.exact, "infeasible allocation reported as exact");
   assert(a.placed < 6, "placed more than the inventory allows");
+});
+
+t("a scenario draw fails explicitly when the configured blueprint is infeasible", () => {
+  const impossible = {
+    code: "IMPOSSIBLE", items: 2,
+    domains: [
+      { id: "A", name: "A", weight: 50 },
+      { id: "B", name: "B", weight: 50 }
+    ],
+    scenarioDraw: { scenarios: 1, perScenario: 2 },
+    scenarios: [{ id: "only", title: "Only", text: "Only" }],
+    questions: [
+      { d: "A", sc: "only", t: "s", q: "One", o: ["a","b","c","d"], c: [0], e: "x" },
+      { d: "A", sc: "only", t: "s", q: "Two", o: ["a","b","c","d"], c: [0], e: "x" }
+    ]
+  };
+  let message = "";
+  try { E.drawQuestions(impossible); } catch (e) { message = e.message; }
+  assert(message.includes("cannot satisfy"), "infeasible draw did not fail explicitly");
 });
 
 console.log("\nattempt persistence format");

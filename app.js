@@ -36,8 +36,9 @@
   // back to <body>. Requiring a focus target makes that omission impossible.
   function showScreen(screenId, focusId){
     SCREENS.forEach(function(id){
-      if (id === screenId) $(id).classList.remove("hidden");
-      else $(id).classList.add("hidden");
+      var active = id === screenId;
+      $(id).classList.toggle("hidden", !active);
+      $(id).hidden = !active;
     });
     var el = $(focusId);
     if (el) el.focus();
@@ -122,7 +123,9 @@
     try {
       var h = JSON.parse(raw);
       if (!h || h.schema !== SCHEMA || !Array.isArray(h.attempts)) return { schema: SCHEMA, attempts: [] };
-      return h;
+      // Local storage can be edited or corrupted just like an imported file. Never let
+      // an invalid record influence trends merely because it is already on this device.
+      return { schema: SCHEMA, attempts: h.attempts.map(sanitiseAttempt).filter(Boolean) };
     } catch (e) { return { schema: SCHEMA, attempts: [] }; }
   }
 
@@ -178,29 +181,38 @@
     if (typeof at !== "number" || !isFinite(at) || at <= 0 || at > Date.now() + 86400000) return null;
 
     function int(v, lo, hi){
-      var n = typeof v === "number" ? Math.round(v) : NaN;
-      return (isFinite(n) && n >= lo && n <= hi) ? n : null;
+      return (typeof v === "number" && isFinite(v) && Number.isInteger(v) && v >= lo && v <= hi)
+        ? v : null;
     }
-    var total = int(a.total, 1, 500);
+    var total = int(a.total, course.items, course.items);
     var correct = total === null ? null : int(a.correct, 0, total);
     var scaled = int(a.scaled, 0, 1000);
-    var seconds = int(a.seconds, 0, 86400);
-    if (total === null || correct === null || scaled === null) return null;
+    var seconds = int(a.seconds, 0, course.minutes * 60);
+    if (total === null || correct === null || scaled === null || seconds === null || typeof a.pass !== "boolean") return null;
+    var expectedScaled = Math.round(100 + (correct / total) * 900);
+    if (scaled !== expectedScaled || a.pass !== (scaled >= course.passScore)) return null;
 
     var domains = {};
-    if (a.domains && typeof a.domains === "object"){
+    var validDomains = !!a.domains && typeof a.domains === "object" && !Array.isArray(a.domains);
+    var expectedDomains = E.domainTargets(course, total);
+    var domainCorrect = 0, domainTotal = 0;
+    if (validDomains){
       course.domains.forEach(function(d){
         var pair = a.domains[d.id];
-        if (!Array.isArray(pair) || pair.length !== 2) return;
-        var dt = int(pair[1], 0, 500);
+        if (!Array.isArray(pair) || pair.length !== 2) { validDomains = false; return; }
+        var dt = int(pair[1], expectedDomains[d.id], expectedDomains[d.id]);
         var dc = dt === null ? null : int(pair[0], 0, dt);
-        if (dc !== null && dt !== null) domains[d.id] = [dc, dt];
+        if (dc === null || dt === null) { validDomains = false; return; }
+        domains[d.id] = [dc, dt];
+        domainCorrect += dc;
+        domainTotal += dt;
       });
     }
+    if (!validDomains || domainCorrect !== correct || domainTotal !== total) return null;
     return {
       code: course.code, at: at, correct: correct, total: total,
-      scaled: scaled, pass: a.pass === true,
-      seconds: seconds === null ? 0 : seconds, domains: domains
+      scaled: scaled, pass: a.pass,
+      seconds: seconds, domains: domains
     };
   }
 
@@ -234,6 +246,45 @@
     reader.readAsText(file);
   }
 
+  function validIndexArray(value, upper){
+    return Array.isArray(value) && value.every(function(v, i){
+      return Number.isInteger(v) && v >= 0 && v < upper && value.indexOf(v) === i;
+    });
+  }
+
+  function validateSavedAttempt(data, course){
+    if (!Array.isArray(data.questions) || data.questions.length !== course.items) return false;
+    if (!Number.isInteger(data.current) || data.current < 0 || data.current >= data.questions.length) return false;
+    if (typeof data.startedAt !== "number" || !isFinite(data.startedAt) || data.startedAt <= 0 || data.startedAt > data.deadline) return false;
+
+    if (data.deadline - data.startedAt > course.minutes * 60 * 1000 + 1000) return false;
+
+    var seen = Object.create(null), domainTally = {}, scenarioTally = {};
+    for (var r = 0; r < data.questions.length; r++){
+      var rec = data.questions[r];
+      if (!rec || typeof rec !== "object" || !Number.isInteger(rec.i) || rec.i < 0 || rec.i >= course.questions.length) return false;
+      if (seen[rec.i]) return false;
+      seen[rec.i] = true;
+      var orig = course.questions[rec.i], count = orig.o.length;
+      if (!validIndexArray(rec.o, count) || rec.o.length !== count) return false;
+      if (!validIndexArray(rec.a, count) || !validIndexArray(rec.s, count)) return false;
+      if (orig.t === "s" && rec.a.length > 1) return false;
+      if (rec.a.some(function(i){ return rec.s.indexOf(i) !== -1; })) return false;
+      if (![0, 1, false, true].includes(rec.f)) return false;
+      domainTally[orig.d] = (domainTally[orig.d] || 0) + 1;
+      if (orig.sc) scenarioTally[orig.sc] = (scenarioTally[orig.sc] || 0) + 1;
+    }
+
+    var targets = E.domainTargets(course, course.items);
+    if (course.domains.some(function(d){ return (domainTally[d.id] || 0) !== targets[d.id]; })) return false;
+    if (E.isScenarioCourse(course)){
+      var chosen = Object.keys(scenarioTally);
+      if (chosen.length !== course.scenarioDraw.scenarios) return false;
+      if (chosen.some(function(id){ return scenarioTally[id] !== course.scenarioDraw.perScenario; })) return false;
+    }
+    return true;
+  }
+
   function readSavedAttempt(){
     var raw;
     try { raw = localStorage.getItem(STORE_KEY); } catch (e) { return null; }
@@ -247,26 +298,37 @@
     // The bank may have been edited since the attempt was saved; indices would no
     // longer point at the same questions, so the attempt has to be discarded.
     if (data.fingerprint !== E.bankFingerprint(course)) return { stale: true, code: data.code };
-    if (typeof data.deadline !== "number" || data.deadline - Date.now() <= 0) { clearAttempt(); return null; }
+    if (typeof data.deadline !== "number" || !isFinite(data.deadline) || data.deadline - Date.now() <= 0) { clearAttempt(); return null; }
+    if (!validateSavedAttempt(data, course)) {
+      clearAttempt();
+      return { corrupt: true, code: data.code };
+    }
     return { data: data, course: course };
   }
 
   function resumeAttempt(saved){
-    state.course = saved.course;
-    indexScenarios();
-    state.examQuestions = saved.data.questions.map(function(rec){
-      var q = prepareFromIndex(rec.i, rec.o);
-      q.userAnswer = rec.a || [];
-      q.flagged = !!rec.f;
-      (rec.s || []).forEach(function(i){ q.struck[i] = true; });
-      return q;
-    });
-    state.current = Math.min(saved.data.current || 0, state.examQuestions.length - 1);
-    state.deadline = saved.data.deadline;
-    state.startedAt = saved.data.startedAt || (saved.data.deadline - saved.course.minutes * 60 * 1000);
-    state.submitted = false;
-    enterExam();
-    announce("Resumed your previous attempt with " + fmtTime(remainingSeconds()) + " remaining.");
+    try {
+      state.course = saved.course;
+      indexScenarios();
+      state.examQuestions = saved.data.questions.map(function(rec){
+        var q = prepareFromIndex(rec.i, rec.o);
+        q.userAnswer = rec.a.slice();
+        q.flagged = !!rec.f;
+        rec.s.forEach(function(i){ q.struck[i] = true; });
+        return q;
+      });
+      state.current = saved.data.current;
+      state.deadline = saved.data.deadline;
+      state.startedAt = saved.data.startedAt;
+      state.submitted = false;
+      enterExam();
+      announce("Resumed your previous attempt with " + fmtTime(remainingSeconds()) + " remaining.");
+    } catch (e) {
+      clearAttempt();
+      state.submitted = true;
+      showScreen("course-screen", "main-content");
+      announce("The saved attempt was invalid and has been discarded.");
+    }
   }
 
   // ---------- course selection ----------
@@ -299,7 +361,7 @@
         '<span class="cc-meta">' +
           '<span>' + c.items + ' questions</span>' +
           '<span>' + c.minutes + ' min</span>' +
-          '<span>' + c.questions.length + ' in bank</span>' +
+          '<span>' + (available ? c.questions.length : c.bankSize) + ' in bank</span>' +
         '</span>';
       if (available) card.addEventListener("click", function(){ selectCourse(c.code); });
       wrap.appendChild(card);
@@ -474,13 +536,20 @@
   }
 
   function startTimer(){
-    if (state.timerId) clearInterval(state.timerId);
+    stopTimer();
+    lastAnnouncedBand = null;
     updateTimerDisplay();
     state.timerId = setInterval(function(){
       updateTimerDisplay();
       if (remainingSeconds() <= 0){ clearInterval(state.timerId); submitExam(true); }
     }, 1000);
     document.addEventListener("visibilitychange", onVisible);
+  }
+
+  function stopTimer(){
+    if (state.timerId) clearInterval(state.timerId);
+    state.timerId = null;
+    document.removeEventListener("visibilitychange", onVisible);
   }
 
   function onVisible(){
@@ -499,6 +568,7 @@
     var band = null;
     if (left <= 120){ el.classList.add("danger"); band = "2"; }
     else if (left <= 600){ el.classList.add("warn"); band = "10"; }
+    $("presubmit-timer").textContent = fmtTime(left) + " remaining";
     if (band && band !== lastAnnouncedBand){
       lastAnnouncedBand = band;
       announce(band + " minutes remaining.");
@@ -610,6 +680,7 @@
       var row = document.createElement("div");
       row.className = "option-row";
       if (q.struck[idx]) row.classList.add("struck");
+      if (q.userAnswer.indexOf(idx) !== -1) row.classList.add("selected");
 
       var input = document.createElement("input");
       input.type = q.type === "m" ? "checkbox" : "radio";
@@ -731,7 +802,7 @@
     fill("presubmit-unanswered", unanswered, "Every question has an answer.");
     fill("presubmit-flagged", flagged, "No questions are flagged.");
 
-    $("presubmit-timer").textContent = fmtTime(remainingSeconds()) + " remaining";
+    updateTimerDisplay();
     showScreen("presubmit-screen", "presubmit-heading");
   }
 
@@ -752,8 +823,7 @@
   function submitExam(auto){
     if (state.submitted) return;
     state.submitted = true;
-    clearInterval(state.timerId);
-    document.removeEventListener("visibilitychange", onVisible);
+    stopTimer();
     window.removeEventListener("beforeunload", beforeUnloadHandler);
     clearAttempt();
     renderResults();
@@ -813,7 +883,9 @@
       total: total,
       scaled: scaled,
       pass: pass,
-      seconds: state.startedAt ? Math.round((Date.now() - state.startedAt) / 1000) : 0,
+      seconds: state.startedAt
+        ? Math.max(0, Math.min(c.minutes * 60, Math.round((Date.now() - state.startedAt) / 1000)))
+        : 0,
       domains: domainRec
     });
 
@@ -955,7 +1027,7 @@
   function abandonAttempt(){
     if (!window.confirm("Discard the attempt in progress?")) return;
     state.submitted = true;
-    clearInterval(state.timerId);
+    stopTimer();
     window.removeEventListener("beforeunload", beforeUnloadHandler);
     clearAttempt();
     showScreen("course-screen", "main-content");
@@ -1023,10 +1095,12 @@
       $("resume-dismiss").addEventListener("click", function(){
         clearAttempt(); $("resume-bar").classList.add("hidden");
       });
-    } else if (saved && saved.stale){
+    } else if (saved && (saved.stale || saved.corrupt)){
       $("resume-bar").classList.remove("hidden");
       $("resume-text").textContent =
-        "A saved attempt for " + saved.code + " could not be restored because the question bank has changed since.";
+        saved.corrupt
+          ? "A saved attempt for " + saved.code + " was invalid and has been discarded."
+          : "A saved attempt for " + saved.code + " could not be restored because the question bank has changed since.";
       $("resume-go").classList.add("hidden");
       $("resume-dismiss").textContent = "Dismiss";
       $("resume-dismiss").addEventListener("click", function(){

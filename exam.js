@@ -115,6 +115,13 @@
 
     var alloc = allocate(rowCaps, colCaps, cellCaps);
 
+    // An infeasible bank is a configuration error, not permission to generate an
+    // off-blueprint exam. CI proves every configured combination is feasible; throwing
+    // here prevents a future content edit from silently weakening a live attempt.
+    if (!alloc.exact) {
+      throw new Error("Question bank cannot satisfy the configured scenario/domain allocation");
+    }
+
     var picked = chosen.map(function (_, r) {
       var out = [];
       alloc.matrix[r].forEach(function (n, c) {
@@ -122,17 +129,6 @@
       });
       return out;
     });
-
-    // Only reachable if a scenario set genuinely lacks the inventory; keeps the exam
-    // the right length rather than short.
-    if (!alloc.exact) {
-      picked.forEach(function (list, r) {
-        if (list.length >= per) return;
-        var left = [];
-        pools[r].forEach(function (l) { left = left.concat(l); });
-        shuffle(left).slice(0, per - list.length).forEach(function (q) { list.push(q); });
-      });
-    }
 
     var out = [];
     picked.forEach(function (list) { shuffle(list).forEach(function (q) { out.push(q); }); });

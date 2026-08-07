@@ -1,12 +1,13 @@
 {
   "name": "claude-certification-practice-exams",
   "version": "1.0.0",
-  "description": "Free, timed, unofficial practice exams for the four Anthropic Claude certifications.",
+  "description": "Free, timed, unofficial practice exams for Anthropic Claude certifications.",
   "private": true,
   "scripts": {
     "audit": "node tools/audit.js",
-    "test": "node tools/test.js && node tools/e2e.js",
-    "check": "node --check courses.js && node --check exam.js && node --check app.js && npm run audit && npm test"
+    "build": "node tools/build.js",
+    "test": "node tools/test.js && node tools/e2e.js && node tools/artifact-test.js",
+    "check": "node --check courses.js && node --check catalog.js && node --check exam.js && node --check app.js && node --check tools/build.js && node --check tools/artifact-test.js && npm run audit && npm test"
   },
   "devDependencies": {
     "jsdom": "^24.0.0"

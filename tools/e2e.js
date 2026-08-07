@@ -25,6 +25,12 @@ function boot(opts) {
     runScripts: "outside-only", url: "https://example.test/"
   });
   const w = dom.window;
+  const intervals = [];
+  if (opts.clock) {
+    w.Date.now = () => opts.clock.now;
+    w.setInterval = fn => { intervals.push(fn); return intervals.length; };
+    w.clearInterval = id => { intervals[id - 1] = null; };
+  }
   if (opts.width) Object.defineProperty(w, "innerWidth", { value: opts.width, configurable: true });
   // minimal localStorage
   const store = Object.assign({}, opts.store || {});
@@ -37,10 +43,13 @@ function boot(opts) {
   w.URL.revokeObjectURL = () => {};
   // jsdom does not implement scrollTo; stubbing it keeps real errors visible in output.
   w.scrollTo = () => {};
-  ["courses.js","exam.js","data/ccao-f.js","data/ccdv-f.js","data/ccar-f.js","data/ccar-p.js","app.js"]
+  ["courses.js","catalog.js","exam.js","data/ccao-f.js","data/ccdv-f.js","data/ccar-f.js","app.js"]
     .forEach(f => w.eval(fs.readFileSync(path.join(ROOT, f), "utf8")));
   w.document.dispatchEvent(new w.Event("DOMContentLoaded"));
-  return { w, d: w.document, store };
+  return {
+    w, d: w.document, store,
+    runIntervals: () => intervals.slice().forEach(fn => { if (fn) fn(); })
+  };
 }
 
 // Play a full exam through to the results screen.
@@ -64,14 +73,15 @@ t("course picker renders all four certifications", () => {
   assert(d.querySelectorAll(".course-card:not(:disabled)").length === 3, "expected 3 released courses");
 });
 
-t("Architect Professional is visible as coming soon but cannot be selected", () => {
-  const { d } = boot();
+t("Architect Professional is visible as coming soon but its bank is not loaded", () => {
+  const { d, w } = boot();
   const cards = Array.from(d.querySelectorAll(".course-card"));
   const card = cards.find(c => c.querySelector(".cc-code").textContent === "CCAR-P");
   assert(card, "CCAR-P card missing");
   assert(card.disabled, "CCAR-P card is enabled");
   assert(card.classList.contains("coming-soon"), "CCAR-P lacks coming-soon state");
   assert(card.textContent.includes("Coming soon"), "coming-soon label missing");
+  assert(!Array.isArray(w.getCourse("CCAR-P").questions), "CCAR-P question bank was loaded in the public app");
   card.click();
   assert(!d.getElementById("course-screen").classList.contains("hidden"), "disabled course opened");
   assert(d.getElementById("splash-screen").classList.contains("hidden"), "splash opened for CCAR-P");
@@ -141,6 +151,22 @@ t("timer is derived from a deadline, not a decrementing counter", () => {
   assert(Math.abs((m * 60 + s) - expected) <= 2, "timer " + before + " does not match deadline");
 });
 
+t("the visible pre-submit timer continues updating", () => {
+  const clock = { now: 1_000_000 };
+  const ctx = boot({ clock });
+  const { d } = ctx;
+  d.querySelectorAll(".course-card")[1].click();
+  d.getElementById("start-btn").click();
+  d.getElementById("submit-btn").click();
+  const before = d.getElementById("presubmit-timer").textContent;
+  clock.now += 60_000;
+  ctx.runIntervals();
+  const after = d.getElementById("presubmit-timer").textContent;
+  assert(before !== after, "pre-submit timer froze at " + before);
+  eq(after, d.getElementById("timer").textContent + " remaining",
+    "visible and main timers disagree");
+});
+
 t("flagging is reflected in the navigator and aria state", () => {
   const { d } = boot();
   d.querySelectorAll(".course-card")[1].click();
@@ -206,7 +232,7 @@ t("an interrupted attempt is offered for resume on reload", () => {
     setItem: (k, v) => { store2[k] = String(v); },
     removeItem: k => { delete store2[k]; }
   }, configurable: true });
-  ["courses.js","exam.js","data/ccao-f.js","data/ccdv-f.js","data/ccar-f.js","data/ccar-p.js","app.js"]
+  ["courses.js","catalog.js","exam.js","data/ccao-f.js","data/ccdv-f.js","data/ccar-f.js","app.js"]
     .forEach(f => w2.eval(fs.readFileSync(path.join(ROOT, f), "utf8")));
   w2.document.dispatchEvent(new w2.Event("DOMContentLoaded"));
 
@@ -233,13 +259,38 @@ t("a stale bank invalidates the saved attempt instead of restoring it", () => {
     setItem: (k, v) => { store2[k] = String(v); },
     removeItem: k => { delete store2[k]; }
   }, configurable: true });
-  ["courses.js","exam.js","data/ccao-f.js","data/ccdv-f.js","data/ccar-f.js","data/ccar-p.js","app.js"]
+  ["courses.js","catalog.js","exam.js","data/ccao-f.js","data/ccdv-f.js","data/ccar-f.js","app.js"]
     .forEach(f => w2.eval(fs.readFileSync(path.join(ROOT, f), "utf8")));
   w2.document.dispatchEvent(new w2.Event("DOMContentLoaded"));
 
   const txt = w2.document.getElementById("resume-text").textContent;
   assert(txt.includes("could not be restored"), "stale attempt was not rejected: " + txt);
   assert(w2.document.getElementById("resume-go").classList.contains("hidden"), "resume button still offered");
+});
+
+t("malformed saved attempts are discarded before Resume is offered", () => {
+  const first = boot();
+  first.d.querySelectorAll(".course-card")[1].click();
+  first.d.getElementById("start-btn").click();
+  const valid = JSON.parse(first.store["claude-exams:v1:active-attempt"]);
+  const mutations = [
+    ["question array", a => { a.questions = null; }],
+    ["question index", a => { a.questions[0].i = 999999; }],
+    ["option permutation", a => { a.questions[0].o = [0, 0, 2, 3]; }],
+    ["current question", a => { a.current = a.questions.length; }],
+    ["answer index", a => { a.questions[0].a = [99]; }],
+    ["selected/struck conflict", a => { a.questions[0].a = [0]; a.questions[0].s = [0]; }]
+  ];
+
+  mutations.forEach(([name, mutate]) => {
+    const altered = JSON.parse(JSON.stringify(valid));
+    mutate(altered);
+    const ctx = boot({ store: { "claude-exams:v1:active-attempt": JSON.stringify(altered) } });
+    assert(!("claude-exams:v1:active-attempt" in ctx.store), name + " was not cleared");
+    assert(ctx.d.getElementById("resume-go").classList.contains("hidden"), name + " still offered Resume");
+    assert(ctx.d.getElementById("resume-text").textContent.includes("invalid"),
+      name + " did not show a recovery explanation");
+  });
 });
 
 t("scenario course shows its scenario panel", () => {
@@ -634,6 +685,45 @@ t("imported records with out-of-range or unknown fields are rejected", () => {
 
   const after = JSON.parse(ctx.store["claude-exams:v1:history"]).attempts.length;
   eq(after, before, "an invalid record was accepted");
+});
+
+t("history import rejects internally inconsistent scores and domain totals", () => {
+  const ctx = boot();
+  playThrough(ctx, 1);
+  ctx.d.getElementById("retake-btn").click();
+  ctx.w.alert = () => {};
+  const stored = JSON.parse(ctx.store["claude-exams:v1:history"]);
+  const base = stored.attempts[0];
+  const variants = [];
+  function changed(mutator, offset) {
+    const copy = JSON.parse(JSON.stringify(base));
+    copy.at += offset;
+    mutator(copy);
+    variants.push(copy);
+  }
+  changed(a => { a.total -= 1; }, 1);
+  changed(a => { a.scaled += 1; }, 2);
+  changed(a => { a.pass = !a.pass; }, 3);
+  changed(a => {
+    const id = Object.keys(a.domains)[0];
+    a.domains[id][1] -= 1;
+  }, 4);
+  changed(a => {
+    const id = Object.keys(a.domains)[0];
+    if (a.domains[id][0] < a.domains[id][1]) a.domains[id][0] += 1;
+    else a.domains[id][0] -= 1;
+  }, 5);
+
+  const payload = JSON.stringify({ schema: 1, attempts: variants });
+  const FR = function(){};
+  FR.prototype.readAsText = function(){ this.result = payload; this.onload(); };
+  ctx.w.FileReader = FR;
+  const fi = ctx.d.getElementById("history-file");
+  Object.defineProperty(fi, "files", { value: [{}], configurable: true });
+  fi.dispatchEvent(new (ctx.d.defaultView.Event)("change"));
+
+  eq(JSON.parse(ctx.store["claude-exams:v1:history"]).attempts.length, 1,
+    "an inconsistent history record was imported");
 });
 
 t("clearing history raises exactly one confirmation after using the filters", () => {

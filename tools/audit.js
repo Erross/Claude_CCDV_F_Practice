@@ -8,6 +8,7 @@
 const path = require("path");
 global.window = global;
 require(path.join(__dirname, "..", "courses.js"));
+require(path.join(__dirname, "..", "catalog.js"));
 // Same engine the browser runs, so the audit measures the real draw rather than a copy.
 const E = require(path.join(__dirname, "..", "exam.js"));
 

@@ -1,6 +1,8 @@
 // CCAR-P — Claude Certified Architect Professional practice question bank.
 // Independent, unofficial practice content. Not affiliated with or endorsed by Anthropic.
 // Blueprint figures from Anthropic's published Exam Guide v1.0 (July 2026).
+// Blueprint metadata last verified 2026-08-07. Content remains gated pending audit;
+// see PROVENANCE.md.
 
 registerCourse({
   code: "CCAR-P",

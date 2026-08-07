@@ -1,12 +1,12 @@
 # Claude Certification Practice Exams
 
-Free, timed, unofficial practice exams for Anthropic Claude certifications. Associate Foundations, Developer Foundations, and Architect Foundations are available now; Architect Professional remains in the application as **coming soon** while its question bank completes audit. Pure static HTML/CSS/JS — no build step, no backend, no accounts. Deploy it to GitHub Pages and it just works.
+Free, timed, unofficial practice exams for Anthropic Claude certifications. Associate Foundations, Developer Foundations, and Architect Foundations are available now; Architect Professional remains in the catalog as **coming soon** while its question bank completes audit. The deployed runtime is static HTML/CSS/JS—no backend and no accounts. A small release build copies only approved bank assets to GitHub Pages.
 
-**[Live demo →](https://erross.github.io/Claude_CCDV_F_Practice/)** *(live once you enable Pages — see below)*
+**[Live demo →](https://erross.github.io/Claude_CCDV_F_Practice/)**
 
 ## What it does
 
-- Includes all four Claude certification architectures, with three currently released. Pick an available course from the splash screen and the exam adapts its item count, time limit, pass mark, and domain blueprint:
+- Includes metadata for all four Claude certification tracks, with three currently released. Pick an available course from the splash screen and the exam adapts its item count, time limit, pass mark, and domain blueprint:
 
 | Exam | Code | Items | Bank | Format | Status |
 |---|---|---:|---:|---|---|
@@ -38,7 +38,7 @@ Free, timed, unofficial practice exams for Anthropic Claude certifications. Asso
 
 ## Why it exists
 
-Anthropic's Claude Certification Program (CCAO-F, CCDV-F, CCA-F, CCA-P) is new as of mid-2026. Existing prep material is almost entirely paid (Udemy courses, "dumps" sites, PDF bundles). At the time this was built, there wasn't a free, open-source, GitHub-published practice-exam *application* — with realistic timing, strikeout, weighted random draw, and domain-level scoring — for any of the four Claude certifications. This covers all four.
+Anthropic's Claude Certification Program (CCAO-F, CCDV-F, CCAR-F, CCAR-P) is new as of mid-2026. Existing prep material is almost entirely paid (Udemy courses, "dumps" sites, PDF bundles). At the time this was built, there wasn't a free, open-source, GitHub-published practice-exam *application* with realistic timing, strikeout, weighted random draw, and domain-level scoring. The three audited Foundations tracks are available; Professional is represented in the catalog but deliberately not published yet.
 
 ## Running it
 
@@ -51,7 +51,7 @@ python3 -m http.server 8000
 
 ## Deploying to GitHub Pages
 
-This repo includes `.github/workflows/pages.yml`, which validates then deploys on every push. Pull requests run the same validation without deploying, and only the runtime files are published — the generator scripts and tooling stay out of the deployed site.
+This repo includes `.github/workflows/pages.yml`, which validates then deploys on every push. Pull requests run the same validation without deploying. `tools/build.js` constructs an explicit runtime artifact from `catalog.js`, so generator scripts, audit tooling, and every gated bank stay out of the deployed site.
 
 1. Push this folder to the root of your repo (commands below).
 2. In the repo, go to **Settings → Pages**.
@@ -65,13 +65,17 @@ This repo includes `.github/workflows/pages.yml`, which validates then deploys o
 ├── index.html      # five screens: course picker, splash, exam, pre-submit, results
 ├── style.css       # all styling
 ├── courses.js      # course registry
+├── catalog.js      # public metadata, release status, and bank-asset manifest
 ├── exam.js         # shared draw engine — used by both the app and the tooling
 ├── app.js          # UI: rendering, timer, persistence, scoring, results
 ├── data/           # one question bank per certification
+├── PROVENANCE.md   # blueprint transcription and product-fact verification record
 ├── tools/
 │   ├── audit.js    # question-bank quality harness
 │   ├── test.js     # engine and persistence tests
-│   └── e2e.js      # headless browser tests driving the real app
+│   ├── e2e.js      # headless DOM tests driving the real app
+│   ├── build.js    # release-catalog-driven public artifact builder
+│   └── artifact-test.js # proves gated bank bytes are not published
 └── README.md
 ```
 
@@ -94,10 +98,10 @@ Questions live in `data/<code>.js` as a flat array on the course object. Each en
 }
 ```
 
-Each course lives in `data/<code>.js` and registers itself via `registerCourse({...})`. Update `examCount` on a course's domains to change how many questions it draws — the values are apportioned from the official blueprint weights by largest remainder and sum to that exam's item count.
+Each bank lives in `data/<code>.js` and registers itself via `registerCourse({...})`. Public metadata and release status live in `catalog.js`; setting a catalog entry to `coming-soon` keeps the bank auditable in the repository while excluding it from the browser and deployment artifact. Update `examCount` on a course's domains to change how many questions it draws—the values are apportioned from the official blueprint weights by largest remainder and sum to that exam's item count.
 
-After any change, run `npm run check` — syntax, bank audit, engine tests, and headless
-browser tests. CI runs the same gate and **will not deploy if any of it fails**.
+After cloning, run `npm ci`, then `npm run check`—syntax, bank audit, engine tests,
+application tests, and a production-artifact leakage test. CI runs the same gate and **will not deploy if any of it fails**. `npm run build` creates the exact `_site` directory used by GitHub Pages.
 
 `node tools/audit.js` alone runs the bank checks. It checks structural integrity, answer-length bias, duplicate and near-duplicate options, conceptual duplication between questions, truncated correct answers, absolute-word tells, positional explanations, sequence-item permutations, blueprint coverage, **whether the generated exam actually reproduces the published domain weights**, and simulated draws per course.
 
@@ -110,27 +114,31 @@ projects on the same `github.io` origin.
 score, pass/fail, time taken, and the per-domain breakdown. No question text and no answers,
 so a full history stays a few kilobytes. Capped at 200 attempts, oldest evicted first. Export
 writes a JSON file; import merges by course and timestamp, so re-importing your own export
-never duplicates anything.
+never duplicates anything. Imported records must also have internally consistent totals,
+scaled scores, pass status, timing, and per-domain results before they affect trends.
 
 **`claude-exams:v1:active-attempt`** — an in-progress attempt, keyed by a fingerprint of the
 question bank. It stores question **indices**, option order, your answers, flags, strikeouts
 and the deadline — never duplicated question text. If the
-bank changes underneath a saved attempt, it is rejected rather than silently restored.
+bank changes underneath a saved attempt, it is rejected rather than silently restored. The
+complete saved shape—including question indices, option permutations, answers, strikeouts,
+domain allocation, and current position—is validated before Resume is offered.
 
 Both are **per browser and per device**. They do not sync, clearing site data removes them,
 and private browsing may not preserve them at all. History is for personal study tracking,
 not an authoritative record — export it if you want a durable copy.
 
-Because this is a static site, the answer keys are delivered to the browser and can be read
-by anyone who inspects the page. That is fine for a practice tool — it simply means this
-cannot be used as a proctored or authoritative assessment without moving question selection
-and scoring to a server.
+Because this is a static site, answer keys for **released** banks are delivered to the browser
+and can be read by anyone who inspects the page. That is fine for a practice tool—it simply
+means this cannot be used as a proctored or authoritative assessment without moving question
+selection and scoring to a server. Coming-soon banks are not loaded or copied into the public
+artifact.
 
 ## Accuracy notes
 
 - Question content is original, written to mirror the publicly documented exam blueprints (domains, weights, topic areas, and the kinds of tradeoffs/distractors the exam guide describes) — it is **not** sourced from Anthropic's actual exam bank and should not be treated as leaked exam content.
 - The "approximate scaled score" on the results page is a simple linear mapping (percent correct → 100–1000 scale) shown for practice-motivation purposes only. Anthropic's real exam is criterion-referenced against a formal standard-setting study, so your actual scaled score will not map exactly to a percent-correct calculation.
-- Domain weights, question counts, and format details reflect Exam Guide v1.0 (effective July 2026). Anthropic may update the blueprint; check the official exam guide before relying on this for final exam-day prep.
+- Domain weights, question counts, and format details reflect Exam Guide v1.0 (effective July 2026). Anthropic may update the blueprint; check the official exam guide before relying on this for final exam-day prep. The repository's transcription, verification date, and primary product-documentation links are retained in [`PROVENANCE.md`](PROVENANCE.md).
 
 ## Contributing
 

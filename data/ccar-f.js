@@ -1,6 +1,7 @@
 // CCAR-F — Claude Certified Architect Foundations practice question bank.
 // Independent, unofficial practice content. Not affiliated with or endorsed by Anthropic.
 // Blueprint figures from Anthropic's published Exam Guide v1.0 (July 2026).
+// Blueprint and product facts last verified 2026-08-07; see PROVENANCE.md.
 //
 // ---- Diversity pass ----
 // An external review found eleven clusters of items that restated one lesson in different

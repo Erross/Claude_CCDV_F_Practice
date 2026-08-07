@@ -22,22 +22,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "20"
 
       - name: Install dev dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Check JavaScript syntax
         run: |
           node --check courses.js
+          node --check catalog.js
           node --check exam.js
           node --check app.js
           node --check tools/audit.js
+          node --check tools/build.js
+          node --check tools/artifact-test.js
           for f in data/*.js; do node --check "$f"; done
 
       - name: Audit question banks
@@ -49,6 +52,9 @@ jobs:
       - name: End-to-end tests
         run: node tools/e2e.js
 
+      - name: Public artifact leakage test
+        run: node tools/artifact-test.js
+
   deploy:
     needs: validate
     if: github.event_name != 'pull_request'
@@ -58,25 +64,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       # Publish only the runtime files. Deploying the repository root would also
       # expose the generator scripts and audit tooling through the site.
       - name: Stage runtime assets
-        run: |
-          mkdir -p _site/data
-          cp index.html style.css courses.js exam.js app.js _site/
-          cp data/*.js _site/data/
-          cp LICENSE _site/ 2>/dev/null || true
+        run: npm run build
 
       - name: Setup Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
           path: "_site"
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

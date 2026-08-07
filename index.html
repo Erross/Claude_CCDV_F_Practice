@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Claude Certification Practice Exams</title>
 <meta name="description" content="Free, timed, unofficial practice exams for the Claude Certified Associate, Developer, and Architect certifications.">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -45,7 +46,7 @@
 </main>
 
 <!-- ============ SPLASH ============ -->
-<main id="splash-screen" class="screen hidden">
+<main id="splash-screen" class="screen hidden" hidden>
   <div class="brand-row">
     <span id="splash-code" class="brand-mark">//</span>
     <span class="brand-tag">unofficial practice exam</span>
@@ -103,7 +104,7 @@
 </main>
 
 <!-- ============ EXAM ============ -->
-<div id="exam-screen" class="screen exam-shell hidden">
+<div id="exam-screen" class="screen exam-shell hidden" hidden>
   <div class="exam-topbar">
     <span id="exam-code" class="title">//</span>
     <span id="progress-txt" class="progress-txt"></span>
@@ -156,7 +157,7 @@
 </div>
 
 <!-- ============ PRE-SUBMISSION REVIEW ============ -->
-<main id="presubmit-screen" class="screen hidden">
+<main id="presubmit-screen" class="screen hidden" hidden>
   <div class="brand-row">
     <span class="brand-mark">REVIEW//</span>
     <span id="presubmit-timer" class="brand-tag"></span>
@@ -178,7 +179,7 @@
 </main>
 
 <!-- ============ RESULTS ============ -->
-<main id="results-screen" class="screen hidden">
+<main id="results-screen" class="screen hidden" hidden>
   <div class="brand-row">
     <span class="brand-mark">RESULTS//</span>
     <button id="change-course-btn-2" type="button" class="link-btn">← change certification</button>
@@ -237,11 +238,11 @@
 </main>
 
 <script src="courses.js"></script>
+<script src="catalog.js"></script>
 <script src="exam.js"></script>
 <script src="data/ccao-f.js"></script>
 <script src="data/ccdv-f.js"></script>
 <script src="data/ccar-f.js"></script>
-<script src="data/ccar-p.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

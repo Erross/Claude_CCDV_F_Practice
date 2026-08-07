@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap');
-
 :root{
   --bg:#0b0f14;
   --panel:#131a22;
@@ -16,8 +14,8 @@
   --danger:#e5646a;
   --success:#4fbf78;
   --radius:10px;
-  --mono:'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  --sans:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --mono:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  --sans:Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 *{box-sizing:border-box}
@@ -411,17 +409,6 @@ p.hero-sub{
   transition:border-color .1s ease, background .1s ease;
 }
 .option-row:hover{ border-color:var(--border-strong); }
-.option-row.selected{ border-color:var(--accent); background:rgba(84,199,184,.08); }
-.option-row.struck{ opacity:.45; }
-.option-row.struck 
-
-
-
-
-
-.option-row.selected 
-
-
 .strike-btn{
   flex:none;
   background:transparent;
@@ -708,7 +695,7 @@ p.hero-sub{
   accent-color:var(--accent); cursor:pointer;
 }
 .option-label{ flex:1; cursor:pointer; line-height:1.5; }
-.option-row:has(.option-input:checked){ border-color:var(--accent); background:var(--panel-2); }
+.option-row.selected{ border-color:var(--accent); background:var(--panel-2); }
 .strike-btn{
   flex:none; background:transparent; border:1px solid var(--border);
   color:var(--text-faint); border-radius:6px; cursor:pointer;

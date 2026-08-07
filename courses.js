@@ -1,5 +1,6 @@
 // Course registry for the Claude certification practice exams.
-// Each data/<code>.js file calls registerCourse(...) to add itself here.
+// catalog.js registers lightweight public metadata for every course. Each
+// data/<code>.js file then calls registerCourse(...) to attach its question bank.
 //
 // A course object looks like:
 // {
@@ -22,27 +23,56 @@
 (function (global) {
   "use strict";
 
-  var COURSES = [];
+  var COURSE_META = [];
+  var BANKS = {};
 
-  global.registerCourse = function (course) {
-    COURSES.push(course);
+  global.registerCourseMetadata = function (entries) {
+    COURSE_META = entries.slice();
   };
 
+  global.registerCourse = function (course) {
+    BANKS[course.code] = course;
+  };
+
+  function resolveCourse(meta) {
+    var bank = BANKS[meta.code];
+    if (!bank) return Object.assign({}, meta);
+    // Release status and asset selection belong to the catalog, not to a bank that
+    // may be present in the repository for private auditing.
+    return Object.assign({}, meta, bank, {
+      status: meta.status,
+      asset: meta.asset,
+      bankSize: meta.bankSize
+    });
+  }
+
   global.getCourses = function () {
-    return COURSES.slice();
+    var out = COURSE_META.map(resolveCourse);
+    Object.keys(BANKS).forEach(function (code) {
+      if (!COURSE_META.some(function (m) { return m.code === code; })) out.push(BANKS[code]);
+    });
+    return out;
   };
 
   global.getCourse = function (code) {
-    for (var i = 0; i < COURSES.length; i++) {
-      if (COURSES[i].code === code) return COURSES[i];
+    for (var i = 0; i < COURSE_META.length; i++) {
+      if (COURSE_META[i].code === code) return resolveCourse(COURSE_META[i]);
     }
-    return null;
+    return BANKS[code] || null;
   };
 
-  // Courses are released by default. This lets a bank remain loaded, audited and
-  // exercised by the shared engine while the web interface keeps it unavailable.
+  global.getCourseCatalog = function () {
+    return COURSE_META.map(function (m) { return Object.assign({}, m); });
+  };
+
+  global.isCourseLoaded = function (course) {
+    return !!(course && Array.isArray(course.questions));
+  };
+
+  // Availability requires both release approval and a loaded bank. A catalog entry
+  // alone can render a Coming soon card, but can never start an exam.
   global.isCourseAvailable = function (course) {
-    return !!course && course.status !== "coming-soon";
+    return !!course && course.status === "available" && global.isCourseLoaded(course);
   };
 
   // Scenario exams don't carry per-domain examCount, so derive the domain mix
@@ -70,7 +100,10 @@
       getCourses: global.getCourses,
       getCourse: global.getCourse,
       registerCourse: global.registerCourse,
+      registerCourseMetadata: global.registerCourseMetadata,
+      getCourseCatalog: global.getCourseCatalog,
       isCourseAvailable: global.isCourseAvailable,
+      isCourseLoaded: global.isCourseLoaded,
       isScenarioCourse: global.isScenarioCourse,
       domainColor: global.domainColor
     };
