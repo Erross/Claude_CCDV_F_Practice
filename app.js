@@ -168,6 +168,42 @@
     announce("History exported.");
   }
 
+  // An imported file is untrusted. Coerce every field to a known type and range and
+  // drop anything unrecognised, so nothing arbitrary can reach the DOM or the store.
+  function sanitiseAttempt(a){
+    if (!a || typeof a !== "object") return null;
+    var course = window.getCourse(a.code);
+    if (!course) return null;                                   // unknown certification
+    var at = a.at;
+    if (typeof at !== "number" || !isFinite(at) || at <= 0 || at > Date.now() + 86400000) return null;
+
+    function int(v, lo, hi){
+      var n = typeof v === "number" ? Math.round(v) : NaN;
+      return (isFinite(n) && n >= lo && n <= hi) ? n : null;
+    }
+    var total = int(a.total, 1, 500);
+    var correct = total === null ? null : int(a.correct, 0, total);
+    var scaled = int(a.scaled, 0, 1000);
+    var seconds = int(a.seconds, 0, 86400);
+    if (total === null || correct === null || scaled === null) return null;
+
+    var domains = {};
+    if (a.domains && typeof a.domains === "object"){
+      course.domains.forEach(function(d){
+        var pair = a.domains[d.id];
+        if (!Array.isArray(pair) || pair.length !== 2) return;
+        var dt = int(pair[1], 0, 500);
+        var dc = dt === null ? null : int(pair[0], 0, dt);
+        if (dc !== null && dt !== null) domains[d.id] = [dc, dt];
+      });
+    }
+    return {
+      code: course.code, at: at, correct: correct, total: total,
+      scaled: scaled, pass: a.pass === true,
+      seconds: seconds === null ? 0 : seconds, domains: domains
+    };
+  }
+
   function importHistory(file){
     var reader = new FileReader();
     reader.onload = function(){
@@ -180,18 +216,20 @@
       }
       var h = readHistory();
       var seen = new Set(h.attempts.map(function(a){ return a.code + "@" + a.at; }));
-      var added = 0;
+      var added = 0, rejected = 0;
       incoming.attempts.forEach(function(a){
-        if (!a || typeof a.at !== "number" || !a.code) return;
-        var key = a.code + "@" + a.at;
+        var clean = sanitiseAttempt(a);
+        if (!clean){ rejected++; return; }
+        var key = clean.code + "@" + clean.at;
         if (seen.has(key)) return;       // merge rather than duplicate
-        seen.add(key); h.attempts.push(a); added++;
+        seen.add(key); h.attempts.push(clean); added++;
       });
       h.attempts.sort(function(x, y){ return x.at - y.at; });
       if (h.attempts.length > HISTORY_LIMIT) h.attempts = h.attempts.slice(-HISTORY_LIMIT);
       writeHistory(h);
       if (state.course) renderHistory();
-      window.alert(added + " attempt(s) imported.");
+      window.alert(added + " attempt(s) imported." +
+        (rejected ? " " + rejected + " record(s) were rejected as invalid." : ""));
     };
     reader.readAsText(file);
   }
@@ -332,19 +370,36 @@
 
     var table = document.createElement("table");
     table.className = "history-table";
-    table.innerHTML =
-      '<thead><tr><th scope="col">When</th><th scope="col">Score</th>' +
-      '<th scope="col">Scaled</th><th scope="col">Time</th><th scope="col">Result</th></tr></thead>';
+    var thead = document.createElement("thead");
+    var hr = document.createElement("tr");
+    ["When","Score","Scaled","Time","Result"].forEach(function(h){
+      var th = document.createElement("th");
+      th.scope = "col"; th.textContent = h; hr.appendChild(th);
+    });
+    thead.appendChild(hr); table.appendChild(thead);
+
     var tb = document.createElement("tbody");
     list.slice(0, 10).forEach(function(a){
       var tr = document.createElement("tr");
-      tr.innerHTML =
-        '<td data-label="When">' + escapeHtml(fmtDate(a.at)) + '</td>' +
-        '<td data-label="Score" style="font-family:var(--mono)">' + a.correct + ' / ' + a.total + '</td>' +
-        '<td data-label="Scaled" style="font-family:var(--mono)">' + a.scaled + '</td>' +
-        '<td data-label="Time" style="font-family:var(--mono)">' + fmtTime(a.seconds || 0) + '</td>' +
-        '<td data-label="Result"><span class="badge-sm ' + (a.pass ? "pass" : "fail") + '">' +
-          (a.pass ? "Pass" : "Fail") + '</span></td>';
+      // textContent throughout: imported records are untrusted input.
+      function cell(label, text, mono){
+        var td = document.createElement("td");
+        td.setAttribute("data-label", label);
+        if (mono) td.style.fontFamily = "var(--mono)";
+        td.textContent = text;
+        tr.appendChild(td);
+      }
+      cell("When", fmtDate(a.at));
+      cell("Score", a.correct + " / " + a.total, true);
+      cell("Scaled", String(a.scaled), true);
+      cell("Time", fmtTime(a.seconds || 0), true);
+      var td = document.createElement("td");
+      td.setAttribute("data-label", "Result");
+      var badge = document.createElement("span");
+      badge.className = "badge-sm " + (a.pass ? "pass" : "fail");
+      // Matches the results screen: the scaled score is an approximation.
+      badge.textContent = a.pass ? "Likely pass" : "Likely fail";
+      td.appendChild(badge); tr.appendChild(td);
       tb.appendChild(tr);
     });
     table.appendChild(tb);
@@ -714,7 +769,8 @@
         "Attempt " + (prior.length + 1) + " on this device · " +
         (scaled > bestBefore ? "a new best (previous best " + bestBefore + ")"
                              : "best so far " + bestBefore) +
-        " · " + (delta === 0 ? "level with" : (delta > 0 ? "+" + delta + " above" : delta + " below")) +
+        " · " + (delta === 0 ? "level with"
+                              : Math.abs(delta) + (delta > 0 ? " above" : " below")) +
         " your average";
       cmp.classList.remove("hidden");
     } else {
@@ -853,20 +909,6 @@
 
   function setFilter(f, btn){
     state.reviewFilter = f;
-    $("history-export").addEventListener("click", exportHistory);
-    $("history-import").addEventListener("click", function(){ $("history-file").click(); });
-    $("history-file").addEventListener("change", function(){
-      if (this.files && this.files[0]) importHistory(this.files[0]);
-      this.value = "";
-    });
-    $("history-clear").addEventListener("click", function(){
-      if (!state.course) return;
-      if (!window.confirm("Delete recorded attempts for " + state.course.code + " on this device?")) return;
-      clearHistory(state.course.code);
-      renderHistory();
-      announce("History cleared for this certification.");
-    });
-
     Array.prototype.forEach.call(document.querySelectorAll(".filter-btn"), function(b){
       b.classList.toggle("active", b === btn);
       b.setAttribute("aria-pressed", b === btn ? "true" : "false");
@@ -892,8 +934,27 @@
   }
 
   // ---------- boot ----------
+  // Bound once at startup. Previously this lived where a filter click could re-run it,
+  // stacking duplicate listeners so "Clear" raised one confirm per click.
+  function wireHistoryControls(){
+    $("history-export").addEventListener("click", exportHistory);
+    $("history-import").addEventListener("click", function(){ $("history-file").click(); });
+    $("history-file").addEventListener("change", function(){
+      if (this.files && this.files[0]) importHistory(this.files[0]);
+      this.value = "";
+    });
+    $("history-clear").addEventListener("click", function(){
+      if (!state.course) return;
+      if (!window.confirm("Delete recorded attempts for " + state.course.code + " on this device?")) return;
+      clearHistory(state.course.code);
+      renderHistory();
+      announce("History cleared for this certification.");
+    });
+  }
+
   document.addEventListener("DOMContentLoaded", function(){
     renderCoursePicker();
+    wireHistoryControls();
 
     $("start-btn").addEventListener("click", startExam);
     $("prev-btn").addEventListener("click", goPrev);
@@ -911,20 +972,6 @@
       var panel = $("nav-panel");
       var open = panel.classList.toggle("open");
       this.setAttribute("aria-expanded", open ? "true" : "false");
-    });
-
-    $("history-export").addEventListener("click", exportHistory);
-    $("history-import").addEventListener("click", function(){ $("history-file").click(); });
-    $("history-file").addEventListener("change", function(){
-      if (this.files && this.files[0]) importHistory(this.files[0]);
-      this.value = "";
-    });
-    $("history-clear").addEventListener("click", function(){
-      if (!state.course) return;
-      if (!window.confirm("Delete recorded attempts for " + state.course.code + " on this device?")) return;
-      clearHistory(state.course.code);
-      renderHistory();
-      announce("History cleared for this certification.");
     });
 
     Array.prototype.forEach.call(document.querySelectorAll(".filter-btn"), function(b){

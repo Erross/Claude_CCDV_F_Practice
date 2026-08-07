@@ -493,6 +493,81 @@ t("exported history re-imports without duplicating", () => {
   assert(after === before, "re-importing the same export duplicated attempts: " + before + " -> " + after);
 });
 
+t("a malicious imported record cannot inject markup into the history table", () => {
+  const ctx = boot();
+  playThrough(ctx, 1);
+  ctx.d.getElementById("retake-btn").click();
+  ctx.w.alert = () => {};
+
+  const code = ctx.d.getElementById("splash-code").textContent.replace("//", "");
+  const payload = JSON.stringify({ schema: 1, attempts: [{
+    code: code, at: Date.now(),
+    correct: '<img src=x onerror="window.__pwned=1">',   // hostile field
+    total: 60, scaled: 800, pass: true, seconds: 100, domains: {}
+  }]});
+  const FR = function(){};
+  FR.prototype.readAsText = function(){ this.result = payload; this.onload(); };
+  ctx.w.FileReader = FR;
+  const fi = ctx.d.getElementById("history-file");
+  Object.defineProperty(fi, "files", { value: [{}], configurable: true });
+  fi.dispatchEvent(new (ctx.d.defaultView.Event)("change"));
+
+  assert(!ctx.w.__pwned, "imported markup executed");
+  assert(ctx.d.querySelectorAll("#history-body img").length === 0,
+    "imported markup created a live element in the history table");
+  // the record should have been rejected outright, not merely escaped
+  const stored = JSON.parse(ctx.store["claude-exams:v1:history"]);
+  assert(!stored.attempts.some(a => typeof a.correct === "string"),
+    "a non-numeric score was accepted into storage");
+});
+
+t("imported records with out-of-range or unknown fields are rejected", () => {
+  const ctx = boot();
+  playThrough(ctx, 1);
+  ctx.d.getElementById("retake-btn").click();
+  ctx.w.alert = () => {};
+  const before = JSON.parse(ctx.store["claude-exams:v1:history"]).attempts.length;
+
+  const bad = JSON.stringify({ schema: 1, attempts: [
+    { code: "NOT-A-COURSE", at: Date.now(), correct: 1, total: 2, scaled: 500, pass: true },
+    { code: "CCDV-F", at: Date.now(), correct: 99, total: 10, scaled: 500, pass: true },  // correct > total
+    { code: "CCDV-F", at: Date.now(), correct: 5, total: 10, scaled: 99999, pass: true }, // scaled out of range
+    { code: "CCDV-F", at: -1, correct: 5, total: 10, scaled: 500, pass: true }            // bad timestamp
+  ]});
+  const FR = function(){};
+  FR.prototype.readAsText = function(){ this.result = bad; this.onload(); };
+  ctx.w.FileReader = FR;
+  const fi = ctx.d.getElementById("history-file");
+  Object.defineProperty(fi, "files", { value: [{}], configurable: true });
+  fi.dispatchEvent(new (ctx.d.defaultView.Event)("change"));
+
+  const after = JSON.parse(ctx.store["claude-exams:v1:history"]).attempts.length;
+  eq(after, before, "an invalid record was accepted");
+});
+
+t("clearing history raises exactly one confirmation after using the filters", () => {
+  const ctx = boot();
+  ctx.w.confirm = () => { ctx.w.__confirms = (ctx.w.__confirms || 0) + 1; return true; };
+  playThrough(ctx, 1);
+  // exercise the results filters, which previously re-bound the history handlers
+  ctx.d.querySelector('.filter-btn[data-filter="incorrect"]').click();
+  ctx.d.querySelector('.filter-btn[data-filter="flagged"]').click();
+  ctx.d.querySelector('.filter-btn[data-filter="all"]').click();
+  ctx.d.getElementById("retake-btn").click();
+  ctx.w.__confirms = 0;
+  ctx.d.getElementById("history-clear").click();
+  eq(ctx.w.__confirms, 1, "duplicate history listeners are stacking");
+});
+
+t("history uses the same approximate wording as the results screen", () => {
+  const ctx = boot();
+  playThrough(ctx, 1);
+  ctx.d.getElementById("retake-btn").click();
+  const badge = ctx.d.querySelector(".history-table .badge-sm").textContent;
+  assert(/^Likely (pass|fail)$/.test(badge),
+    "history states a definite result while the score is only approximate: " + badge);
+});
+
 t("importing a foreign file is rejected", () => {
   const ctx = boot();
   playThrough(ctx, 1);
