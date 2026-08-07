@@ -10,13 +10,13 @@ Free, timed, unofficial practice exams for **all four Anthropic Claude certifica
 
 | Exam | Code | Items | Bank | Format |
 |---|---|---|---|---|
-| Claude Certified Associate – Foundations | CCAO-F | 60 | 238 | weighted by domain |
+| Claude Certified Associate – Foundations | CCAO-F | 60 | 246 | weighted by domain |
 | Claude Certified Developer – Foundations | CCDV-F | 53 | 208 | weighted by domain |
-| Claude Certified Architect – Foundations | CCAR-F | 60 | 120 | scenario-based (4 of 6 scenarios × 15) |
+| Claude Certified Architect – Foundations | CCAR-F | 60 | 158 | scenario-based (4 of 6 scenarios × 15) |
 | Claude Certified Architect – Professional | CCAR-P | 63 | 74 | weighted by domain |
 
 - Draws a **fresh exam at random** every time you start, sampling each domain **proportionally to its official exam weight**
-- Architect Foundations reproduces the real exam's **scenario structure**: four scenarios drawn from a pool of six, with a block of questions on each
+- Architect Foundations reproduces the real exam's **scenario structure**: four scenarios drawn from a pool of six, with a block of questions on each. The draw is **stratified by domain**, so every exam reproduces the published domain weights rather than inheriting whatever mix the chosen scenarios happen to contain
 - Renders **single-select (radio) and multi-select (checkbox)** questions correctly, matching the real exam's "select N" format
 - **120-minute countdown timer** that turns amber under 10 minutes, red under 2, and auto-submits at zero
 - A **question navigator grid** (like real Pearson VUE-style testing software) showing answered / unanswered / flagged / current state, with click-to-jump
@@ -79,7 +79,7 @@ Questions live in `data/<code>.js` as a flat array on the course object. Each en
 
 Each course lives in `data/<code>.js` and registers itself via `registerCourse({...})`. Update `examCount` on a course's domains to change how many questions it draws — the values are apportioned from the official blueprint weights by largest remainder and sum to that exam's item count.
 
-After any change, run `node tools/audit.js` — it checks structural integrity, answer-length bias, duplicate and near-duplicate options, absolute-word tells, positional explanations, sequence-item permutations, blueprint coverage, and 500 simulated draws per course.
+After any change, run `node tools/audit.js`. It checks structural integrity, answer-length bias, duplicate and near-duplicate options, conceptual duplication between questions, truncated correct answers, absolute-word tells, positional explanations, sequence-item permutations, blueprint coverage, **whether the generated exam actually reproduces the published domain weights**, and simulated draws per course.
 
 ## Accuracy notes
 

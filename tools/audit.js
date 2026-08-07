@@ -200,6 +200,72 @@ function auditCourse(c){
     });
   }
 
+  // ---- blueprint fidelity of the generated exam ----
+  // Structural validity isn't enough: the exam actually produced has to reproduce the
+  // published domain weights. Scenario courses are where this drifts, because pool
+  // composition rather than the blueprint would otherwise decide the mix.
+  {
+    const tally = {};
+    let drawnTotal = 0;
+    const SIMS = 3000;
+    for (let k = 0; k < SIMS; k++) {
+      let drawn = [];
+      if (isScenario) {
+        const chosen = pickN(c.scenarios, c.scenarioDraw.scenarios);
+        const per = c.scenarioDraw.perScenario;
+        const remaining = {};
+        {
+          const parts = c.domains.map(d => {
+            const e = chosen.length * per * d.weight / 100;
+            return { id: d.id, n: Math.floor(e), rem: e - Math.floor(e) };
+          });
+          let short = chosen.length * per - parts.reduce((s, p) => s + p.n, 0);
+          parts.slice().sort((a, b) => b.rem - a.rem).slice(0, short).forEach(p => p.n++);
+          parts.forEach(p => remaining[p.id] = p.n);
+        }
+        const pools = chosen.map(sc => {
+          const b = {};
+          c.domains.forEach(d => { b[d.id] = shuffle(c.questions.filter(q => q.sc === sc.id && q.d === d.id)); });
+          return b;
+        });
+        const picked = chosen.map(() => []);
+        Object.keys(remaining)
+          .sort((a, b) => pools.reduce((s, p) => s + p[a].length, 0) - pools.reduce((s, p) => s + p[b].length, 0))
+          .forEach(dom => {
+            let want = remaining[dom], guard = 0;
+            while (want > 0 && guard < 1000) {
+              let progressed = false;
+              for (let i = 0; i < pools.length && want > 0; i++) {
+                if (picked[i].length >= per || !pools[i][dom].length) continue;
+                picked[i].push(pools[i][dom].pop()); want--; progressed = true;
+              }
+              if (!progressed) break;
+              guard++;
+            }
+          });
+        picked.forEach((list, i) => {
+          if (list.length >= per) return;
+          let left = [];
+          c.domains.forEach(d => { left = left.concat(pools[i][d.id]); });
+          shuffle(left).slice(0, per - list.length).forEach(q => list.push(q));
+        });
+        drawn = [].concat.apply([], picked);
+      } else {
+        c.domains.forEach(d => { drawn = drawn.concat(pickN(c.questions.filter(q => q.d === d.id), d.examCount)); });
+      }
+      drawnTotal += drawn.length;
+      drawn.forEach(q => tally[q.d] = (tally[q.d] || 0) + 1);
+    }
+    c.domains.forEach(d => {
+      const share = 100 * (tally[d.id] || 0) / drawnTotal;
+      const delta = share - d.weight;
+      if (Math.abs(delta) > 2)
+        add("ERROR", `domain ${d.id} draws ${share.toFixed(1)}% of the exam but its blueprint weight is ${d.weight}% (${delta > 0 ? "+" : ""}${delta.toFixed(1)}pp)`);
+      else if (Math.abs(delta) > 1)
+        add("WARN", `domain ${d.id} draws ${share.toFixed(1)}% vs blueprint ${d.weight}%`);
+    });
+  }
+
   const multi = Q.filter(q => q.t === "m");
   const card = {};
   multi.forEach(q => card[q.c.length] = (card[q.c.length] || 0) + 1);

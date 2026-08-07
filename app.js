@@ -67,17 +67,76 @@
     };
   }
 
-  // Scenario exams present a pool of scenarios, draw a subset, and ask a block of
-  // questions about each. Question order stays grouped so the context reads sensibly.
+  // Apportion a total across domains by their blueprint weights (largest remainder).
+  function domainTargets(course, total){
+    var parts = course.domains.map(function(d){
+      var exact = total * d.weight / 100;
+      return { id: d.id, n: Math.floor(exact), rem: exact - Math.floor(exact) };
+    });
+    var short = total - parts.reduce(function(s, p){ return s + p.n; }, 0);
+    parts.slice().sort(function(a, b){ return b.rem - a.rem; })
+         .slice(0, short).forEach(function(p){ p.n++; });
+    var out = {};
+    parts.forEach(function(p){ out[p.id] = p.n; });
+    return out;
+  }
+
+  // Scenario exams draw a subset of scenarios and ask a block of questions about each.
+  // Sampling each block uniformly would let the pools' own domain mix decide the exam's
+  // mix, which drifts away from the blueprint. So the exam-level domain quota is computed
+  // first, then spread across the chosen scenarios — each still contributing one block.
   function buildScenarioExam(course){
     var chosen = pickN(course.scenarios, course.scenarioDraw.scenarios);
-    var out = [];
-    chosen.forEach(function(sc){
-      var pool = course.questions.filter(function(q){ return q.sc === sc.id; });
-      pickN(pool, course.scenarioDraw.perScenario).forEach(function(q){
-        out.push(prepare(q));
+    var perScenario = course.scenarioDraw.perScenario;
+    var remaining = domainTargets(course, chosen.length * perScenario);
+
+    // pool[scenarioIndex][domainId] = shuffled questions still available
+    var pools = chosen.map(function(sc){
+      var byDom = {};
+      course.domains.forEach(function(d){
+        byDom[d.id] = shuffle(course.questions.filter(function(q){
+          return q.sc === sc.id && q.d === d.id;
+        }));
       });
+      return byDom;
     });
+
+    var picked = chosen.map(function(){ return []; });
+    // Fill the scarcest domain first so a domain thin on the ground isn't crowded out.
+    var order = Object.keys(remaining).sort(function(a, b){
+      var availA = pools.reduce(function(s, p){ return s + p[a].length; }, 0);
+      var availB = pools.reduce(function(s, p){ return s + p[b].length; }, 0);
+      return availA - availB;
+    });
+
+    order.forEach(function(dom){
+      var want = remaining[dom];
+      // round-robin across scenarios so no single block is dominated by one domain
+      var guard = 0;
+      while (want > 0 && guard < 1000){
+        var progressed = false;
+        for (var i = 0; i < pools.length && want > 0; i++){
+          if (picked[i].length >= perScenario) continue;
+          if (!pools[i][dom].length) continue;
+          picked[i].push(pools[i][dom].pop());
+          want--; progressed = true;
+        }
+        if (!progressed) break;   // pools exhausted for this domain
+        guard++;
+      }
+      remaining[dom] = want;      // any shortfall backfilled below
+    });
+
+    // Backfill any block still short (pool gaps) with whatever remains in that scenario.
+    picked.forEach(function(list, i){
+      if (list.length >= perScenario) return;
+      var leftovers = [];
+      course.domains.forEach(function(d){ leftovers = leftovers.concat(pools[i][d.id]); });
+      shuffle(leftovers).slice(0, perScenario - list.length).forEach(function(q){ list.push(q); });
+    });
+
+    var out = [];
+    picked.forEach(function(list){ shuffle(list).forEach(function(q){ out.push(prepare(q)); }); });
     return out;
   }
 
