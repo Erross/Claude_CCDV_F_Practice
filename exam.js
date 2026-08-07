@@ -39,51 +39,100 @@
     return !!(course && course.scenarioDraw && course.scenarios && course.scenarios.length);
   }
 
+
+  // Exact allocation of an exam-level domain quota across the chosen scenario blocks.
+  //
+  // Rows are scenarios (each must contribute exactly `per` questions), columns are
+  // domains (each must contribute exactly its blueprint target), and a cell is capped
+  // by how many questions that scenario actually holds in that domain. A greedy fill
+  // gets this right most of the time but can wedge: it commits a block to capacity and
+  // then finds a later domain has nowhere left to go. Max-flow has no such failure mode
+  // — if a feasible allocation exists it finds one, and it can prove when none does.
+  function allocate(rowCaps, colCaps, cellCaps) {
+    var R = rowCaps.length, C = colCaps.length;
+    var N = R + C + 2, S = 0, T = N - 1;
+    var cap = [];
+    for (var i = 0; i < N; i++) cap.push(new Array(N).fill(0));
+
+    for (var r = 0; r < R; r++) cap[S][1 + r] = rowCaps[r];
+    for (var c = 0; c < C; c++) cap[1 + R + c][T] = colCaps[c];
+    for (r = 0; r < R; r++)
+      for (c = 0; c < C; c++) cap[1 + r][1 + R + c] = cellCaps[r][c];
+
+    var flow = [];
+    for (i = 0; i < N; i++) flow.push(new Array(N).fill(0));
+
+    // Edmonds-Karp: the graph is 11 nodes, so BFS augmentation is more than fast enough.
+    for (;;) {
+      var prev = new Array(N).fill(-1);
+      prev[S] = S;
+      var queue = [S];
+      while (queue.length && prev[T] === -1) {
+        var u = queue.shift();
+        for (var v = 0; v < N; v++) {
+          if (prev[v] === -1 && cap[u][v] - flow[u][v] > 0) { prev[v] = u; queue.push(v); }
+        }
+      }
+      if (prev[T] === -1) break;
+      var bottleneck = Infinity, x = T;
+      while (x !== S) { bottleneck = Math.min(bottleneck, cap[prev[x]][x] - flow[prev[x]][x]); x = prev[x]; }
+      x = T;
+      while (x !== S) { flow[prev[x]][x] += bottleneck; flow[x][prev[x]] -= bottleneck; x = prev[x]; }
+    }
+
+    var total = 0;
+    for (c = 0; c < C; c++) total += flow[1 + R + c][T];
+    var want = colCaps.reduce(function (a, b) { return a + b; }, 0);
+
+    var matrix = [];
+    for (r = 0; r < R; r++) {
+      matrix.push([]);
+      for (c = 0; c < C; c++) matrix[r].push(flow[1 + r][1 + R + c]);
+    }
+    return { matrix: matrix, exact: total === want, placed: total };
+  }
+
   // Scenario exams: draw a subset of scenarios, then fill each block against an
   // exam-level domain quota. Sampling each block uniformly would let pool composition
   // decide the exam's domain mix instead of the blueprint.
   function drawScenario(course) {
     var chosen = pickN(course.scenarios, course.scenarioDraw.scenarios);
     var per = course.scenarioDraw.perScenario;
-    var remaining = domainTargets(course, chosen.length * per);
+    var targets = domainTargets(course, chosen.length * per);
+    var domIds = course.domains.map(function (d) { return d.id; });
 
     var pools = chosen.map(function (sc) {
-      var byDom = {};
-      course.domains.forEach(function (d) {
-        byDom[d.id] = shuffle(course.questions.filter(function (q) {
-          return q.sc === sc.id && q.d === d.id;
+      return domIds.map(function (id) {
+        return shuffle(course.questions.filter(function (q) {
+          return q.sc === sc.id && q.d === id;
         }));
       });
-      return byDom;
     });
 
-    var picked = chosen.map(function () { return []; });
+    var rowCaps = chosen.map(function () { return per; });
+    var colCaps = domIds.map(function (id) { return targets[id]; });
+    var cellCaps = pools.map(function (row) { return row.map(function (list) { return list.length; }); });
 
-    // Scarcest domain first, round-robin across blocks, so a thin domain isn't crowded out.
-    Object.keys(remaining).sort(function (a, b) {
-      return pools.reduce(function (s, p) { return s + p[a].length; }, 0) -
-             pools.reduce(function (s, p) { return s + p[b].length; }, 0);
-    }).forEach(function (dom) {
-      var want = remaining[dom], guard = 0;
-      while (want > 0 && guard < 1000) {
-        var progressed = false;
-        for (var i = 0; i < pools.length && want > 0; i++) {
-          if (picked[i].length >= per || !pools[i][dom].length) continue;
-          picked[i].push(pools[i][dom].pop());
-          want--; progressed = true;
-        }
-        if (!progressed) break;
-        guard++;
-      }
+    var alloc = allocate(rowCaps, colCaps, cellCaps);
+
+    var picked = chosen.map(function (_, r) {
+      var out = [];
+      alloc.matrix[r].forEach(function (n, c) {
+        for (var k = 0; k < n; k++) out.push(pools[r][c].pop());
+      });
+      return out;
     });
 
-    // Backfill any block left short by a pool gap.
-    picked.forEach(function (list, i) {
-      if (list.length >= per) return;
-      var left = [];
-      course.domains.forEach(function (d) { left = left.concat(pools[i][d.id]); });
-      shuffle(left).slice(0, per - list.length).forEach(function (q) { list.push(q); });
-    });
+    // Only reachable if a scenario set genuinely lacks the inventory; keeps the exam
+    // the right length rather than short.
+    if (!alloc.exact) {
+      picked.forEach(function (list, r) {
+        if (list.length >= per) return;
+        var left = [];
+        pools[r].forEach(function (l) { left = left.concat(l); });
+        shuffle(left).slice(0, per - list.length).forEach(function (q) { list.push(q); });
+      });
+    }
 
     var out = [];
     picked.forEach(function (list) { shuffle(list).forEach(function (q) { out.push(q); }); });
@@ -118,6 +167,7 @@
   }
 
   var api = {
+    allocate: allocate,
     shuffle: shuffle,
     pickN: pickN,
     domainTargets: domainTargets,

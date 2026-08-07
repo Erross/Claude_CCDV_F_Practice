@@ -30,10 +30,24 @@ function boot() {
     setItem: (k, v) => { store[k] = String(v); },
     removeItem: k => { delete store[k]; }
   }, configurable: true });
+  w.URL.createObjectURL = () => "blob:stub";
+  w.URL.revokeObjectURL = () => {};
   ["courses.js","exam.js","data/ccao-f.js","data/ccdv-f.js","data/ccar-f.js","data/ccar-p.js","app.js"]
     .forEach(f => w.eval(fs.readFileSync(path.join(ROOT, f), "utf8")));
   w.document.dispatchEvent(new w.Event("DOMContentLoaded"));
   return { w, d: w.document, store };
+}
+
+// Play a full exam through to the results screen.
+function playThrough(ctx, courseIndex) {
+  const { d } = ctx;
+  d.querySelectorAll(".course-card")[courseIndex].click();
+  d.getElementById("start-btn").click();
+  const input = d.querySelector("#options input");
+  input.checked = true;
+  input.dispatchEvent(new (d.defaultView.Event)("change"));
+  d.getElementById("submit-btn").click();
+  d.getElementById("presubmit-submit").click();
 }
 
 console.log("\nend-to-end (jsdom, real app.js)");
@@ -207,6 +221,112 @@ t("scenario course shows its scenario panel", () => {
   d.getElementById("start-btn").click();
   assert(!d.getElementById("scenario-panel").classList.contains("hidden"), "scenario panel hidden");
   assert(d.getElementById("scenario-text").textContent.length > 50, "scenario text missing");
+});
+
+console.log("\nattempt history");
+
+t("a completed attempt is written to history", () => {
+  const ctx = boot();
+  playThrough(ctx, 1);
+  const h = JSON.parse(ctx.store["claude-exams:v1:history"]);
+  assert(h.attempts.length === 1, "expected 1 recorded attempt, got " + h.attempts.length);
+  const a = h.attempts[0];
+  ["code","at","correct","total","scaled","pass","seconds","domains"].forEach(k =>
+    assert(k in a, "history record missing " + k));
+  assert(typeof a.domains === "object" && Object.keys(a.domains).length > 0, "no domain breakdown");
+});
+
+t("history stores results only, never question text", () => {
+  const ctx = boot();
+  playThrough(ctx, 1);
+  const raw = ctx.store["claude-exams:v1:history"];
+  const course = ctx.w.getCourse(JSON.parse(raw).attempts[0].code);
+  const stem = course.questions[0].q.slice(0, 25);
+  assert(raw.indexOf(stem) === -1, "history leaked question text");
+  assert(raw.length < 4000, "history record unexpectedly large: " + raw.length + " bytes");
+});
+
+t("history renders on the splash after an attempt", () => {
+  const ctx = boot();
+  playThrough(ctx, 1);
+  ctx.d.getElementById("retake-btn").click();
+  const panel = ctx.d.getElementById("history-panel");
+  assert(!panel.classList.contains("hidden"), "history panel hidden");
+  assert(ctx.d.querySelectorAll(".history-table tbody tr").length === 1, "history row missing");
+  assert(ctx.d.getElementById("history-stats").textContent.includes("attempt"), "stats line missing");
+});
+
+t("a second attempt is compared against the first", () => {
+  const ctx = boot();
+  playThrough(ctx, 1);
+  ctx.d.getElementById("retake-btn").click();
+  ctx.d.getElementById("start-btn").click();
+  ctx.d.getElementById("submit-btn").click();
+  ctx.d.getElementById("presubmit-submit").click();
+  const cmp = ctx.d.getElementById("score-compare").textContent;
+  assert(cmp.includes("Attempt 2"), "comparison did not reference attempt number: " + cmp);
+  const h = JSON.parse(ctx.store["claude-exams:v1:history"]);
+  assert(h.attempts.length === 2, "second attempt not recorded");
+});
+
+t("history is kept per certification", () => {
+  const ctx = boot();
+  playThrough(ctx, 1);
+  ctx.d.getElementById("change-course-btn-2").click();
+  playThrough(ctx, 0);
+  const h = JSON.parse(ctx.store["claude-exams:v1:history"]);
+  const codes = new Set(h.attempts.map(a => a.code));
+  assert(codes.size === 2, "expected two courses in history, got " + codes.size);
+  // the splash for the current course must show only its own attempts
+  ctx.d.getElementById("retake-btn").click();
+  assert(ctx.d.querySelectorAll(".history-table tbody tr").length === 1,
+    "history panel mixed courses together");
+});
+
+t("clearing history removes only the current certification", () => {
+  const ctx = boot();
+  ctx.w.confirm = () => true;
+  playThrough(ctx, 1);
+  ctx.d.getElementById("change-course-btn-2").click();
+  playThrough(ctx, 0);
+  ctx.d.getElementById("retake-btn").click();
+  ctx.d.getElementById("history-clear").click();
+  const h = JSON.parse(ctx.store["claude-exams:v1:history"]);
+  assert(h.attempts.length === 1, "expected the other course's attempt to survive");
+});
+
+t("exported history re-imports without duplicating", () => {
+  const ctx = boot();
+  playThrough(ctx, 1);
+  const exported = ctx.store["claude-exams:v1:history"];
+  ctx.d.getElementById("retake-btn").click();
+  ctx.w.alert = () => {};
+
+  // feed the exported payload back in through the import path
+  const before = JSON.parse(ctx.store["claude-exams:v1:history"]).attempts.length;
+  const FR = function(){ };
+  FR.prototype.readAsText = function(){ this.result = exported; this.onload(); };
+  ctx.w.FileReader = FR;
+  const fileInput = ctx.d.getElementById("history-file");
+  Object.defineProperty(fileInput, "files", { value: [{}], configurable: true });
+  fileInput.dispatchEvent(new (ctx.d.defaultView.Event)("change"));
+  const after = JSON.parse(ctx.store["claude-exams:v1:history"]).attempts.length;
+  assert(after === before, "re-importing the same export duplicated attempts: " + before + " -> " + after);
+});
+
+t("importing a foreign file is rejected", () => {
+  const ctx = boot();
+  playThrough(ctx, 1);
+  ctx.d.getElementById("retake-btn").click();
+  let alerted = "";
+  ctx.w.alert = m => { alerted = m; };
+  const FR = function(){ };
+  FR.prototype.readAsText = function(){ this.result = '{"nope":true}'; this.onload(); };
+  ctx.w.FileReader = FR;
+  const fileInput = ctx.d.getElementById("history-file");
+  Object.defineProperty(fileInput, "files", { value: [{}], configurable: true });
+  fileInput.dispatchEvent(new (ctx.d.defaultView.Event)("change"));
+  assert(alerted.includes("not a compatible"), "bad import was not rejected: " + alerted);
 });
 
 console.log("\n" + pass + " passed, " + fail + " failed");

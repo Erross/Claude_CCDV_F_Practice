@@ -188,26 +188,44 @@ function auditCourse(c){
   }
 
   // ---- blueprint fidelity of the generated exam ----
-  // Structural validity isn't enough: the exam actually produced has to reproduce the
-  // published domain weights. Uses the shared engine, so this measures the real draw.
+  // Averaging domain share across simulations hides a draw that is individually wrong,
+  // so this requires EVERY generated exam to equal the apportioned target exactly.
   {
-    const tally = {};
-    let drawnTotal = 0;
+    const target = E.domainTargets(c, c.items);
+    let deviating = 0, wrongSize = 0;
     for (let k = 0; k < 3000; k++) {
       const drawn = E.drawQuestions(c);
-      drawnTotal += drawn.length;
+      if (drawn.length !== c.items) { wrongSize++; continue; }
+      const tally = {};
       drawn.forEach(q => tally[q.d] = (tally[q.d] || 0) + 1);
-      if (drawn.length !== c.items)
-        add("ERROR", `a simulated draw produced ${drawn.length} questions, expected ${c.items}`);
+      if (c.domains.some(d => (tally[d.id] || 0) !== target[d.id])) deviating++;
     }
-    c.domains.forEach(d => {
-      const share = 100 * (tally[d.id] || 0) / drawnTotal;
-      const delta = share - d.weight;
-      if (Math.abs(delta) > 2)
-        add("ERROR", `domain ${d.id} draws ${share.toFixed(1)}% of the exam but its blueprint weight is ${d.weight}% (${delta > 0 ? "+" : ""}${delta.toFixed(1)}pp)`);
-      else if (Math.abs(delta) > 1)
-        add("WARN", `domain ${d.id} draws ${share.toFixed(1)}% vs blueprint ${d.weight}%`);
-    });
+    if (wrongSize) add("ERROR", `${wrongSize} of 3000 draws produced the wrong number of questions`);
+    if (deviating) add("ERROR",
+      `${deviating} of 3000 draws did not match the exact blueprint target ` +
+      `(${c.domains.map(d => d.id + " " + target[d.id]).join(", ")})`);
+
+    // Scenario courses: prove the allocator is exact for every scenario combination,
+    // not merely for the ones that happen to come up in simulation.
+    if (E.isScenarioCourse(c)) {
+      const domIds = c.domains.map(d => d.id);
+      const per = c.scenarioDraw.perScenario;
+      const combos = [];
+      (function rec(start, cur) {
+        if (cur.length === c.scenarioDraw.scenarios) { combos.push(cur.slice()); return; }
+        for (let i = start; i < c.scenarios.length; i++) { cur.push(c.scenarios[i]); rec(i + 1, cur); cur.pop(); }
+      })(0, []);
+      const infeasible = [];
+      combos.forEach(set => {
+        const cellCaps = set.map(sc => domIds.map(id =>
+          c.questions.filter(q => q.sc === sc.id && q.d === id).length));
+        const a = E.allocate(set.map(() => per), domIds.map(id => target[id]), cellCaps);
+        if (!a.exact) infeasible.push(set.map(x => x.id).join(" + ") + ` (placed ${a.placed}/${c.items})`);
+      });
+      if (infeasible.length)
+        add("ERROR", `${infeasible.length}/${combos.length} scenario combinations cannot hit the target: ` +
+                     infeasible.slice(0, 3).join("; "));
+    }
   }
 
   const multi = Q.filter(q => q.t === "m");

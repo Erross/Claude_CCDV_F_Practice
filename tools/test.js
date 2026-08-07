@@ -92,6 +92,66 @@ t("bank fingerprint is stable and change-sensitive", () => {
   eq(E.bankFingerprint(c), before, "fingerprint did not return after revert");
 });
 
+console.log("\nexact domain allocation");
+
+// The previous greedy allocator hit the exact blueprint target on ~98% of scenario
+// combinations and silently backfilled the rest. These assert exactness, not averages.
+t("every generated exam matches the blueprint target exactly", () => {
+  courses.forEach(c => {
+    const target = E.domainTargets(c, c.items);
+    for (let i = 0; i < 400; i++) {
+      const drawn = E.drawQuestions(c);
+      eq(drawn.length, c.items, c.code + " wrong size");
+      const tally = {};
+      drawn.forEach(q => tally[q.d] = (tally[q.d] || 0) + 1);
+      c.domains.forEach(d =>
+        eq(tally[d.id] || 0, target[d.id], c.code + " domain " + d.id + " off target"));
+    }
+  });
+});
+
+t("the allocator is exact for every scenario combination, not just sampled ones", () => {
+  courses.filter(E.isScenarioCourse).forEach(c => {
+    const domIds = c.domains.map(d => d.id);
+    const per = c.scenarioDraw.perScenario;
+    const target = E.domainTargets(c, c.items);
+    const combos = [];
+    (function rec(start, cur) {
+      if (cur.length === c.scenarioDraw.scenarios) { combos.push(cur.slice()); return; }
+      for (let i = start; i < c.scenarios.length; i++) { cur.push(c.scenarios[i]); rec(i + 1, cur); cur.pop(); }
+    })(0, []);
+    assert(combos.length > 0, "no scenario combinations generated");
+    combos.forEach(set => {
+      const cellCaps = set.map(sc => domIds.map(id =>
+        c.questions.filter(q => q.sc === sc.id && q.d === id).length));
+      const a = E.allocate(set.map(() => per), domIds.map(id => target[id]), cellCaps);
+      assert(a.exact, c.code + ": " + set.map(x => x.id).join("+") +
+        " could only place " + a.placed + " of " + c.items);
+      a.matrix.forEach(row =>
+        eq(row.reduce((x, y) => x + y, 0), per, "a scenario block is not " + per + " questions"));
+      domIds.forEach((id, ci) =>
+        eq(a.matrix.reduce((acc, row) => acc + row[ci], 0), target[id], "domain " + id + " column sum"));
+    });
+  });
+});
+
+t("the allocator respects per-cell inventory limits", () => {
+  // 2 rows x 3 cols; column 2 can only be served by row 0
+  const a = E.allocate([3, 3], [2, 2, 2], [[2, 2, 2], [2, 2, 0]]);
+  assert(a.exact, "feasible allocation reported infeasible");
+  a.matrix.forEach((row, r) => row.forEach((n, ci) => {
+    assert(n <= [[2, 2, 2], [2, 2, 0]][r][ci], "allocation exceeded cell capacity");
+  }));
+  eq(a.matrix[1][2], 0, "allocated into a cell with no inventory");
+});
+
+t("the allocator reports infeasibility rather than silently under-filling", () => {
+  // demand 6, but only 4 available anywhere
+  const a = E.allocate([3, 3], [2, 2, 2], [[1, 1, 0], [1, 1, 0]]);
+  assert(!a.exact, "infeasible allocation reported as exact");
+  assert(a.placed < 6, "placed more than the inventory allows");
+});
+
 console.log("\nattempt persistence format");
 
 t("an attempt round-trips through the saved shape", () => {

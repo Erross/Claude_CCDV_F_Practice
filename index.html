@@ -82,6 +82,24 @@
     <button id="start-btn" type="button" class="btn btn-primary">Start practice exam →</button>
     <span style="color:var(--text-faint); font-size:.85rem;">No sign-up. Nothing leaves your browser.</span>
   </div>
+
+  <section id="history-panel" class="history-panel hidden" aria-labelledby="history-heading">
+    <div class="history-head">
+      <h2 id="history-heading" class="section-label">Your attempts on this device</h2>
+      <div class="history-actions">
+        <button id="history-export" type="button" class="btn btn-sm">Export</button>
+        <button id="history-import" type="button" class="btn btn-sm">Import</button>
+        <button id="history-clear" type="button" class="btn btn-sm btn-ghost">Clear</button>
+        <input id="history-file" type="file" accept="application/json,.json" class="sr-only">
+      </div>
+    </div>
+    <p id="history-stats" class="history-stats"></p>
+    <div id="history-body"></div>
+    <p class="history-note">
+      History is stored in this browser only. It does not sync between devices, and clearing
+      site data removes it. Use Export to keep a copy.
+    </p>
+  </section>
 </main>
 
 <!-- ============ EXAM ============ -->
@@ -172,6 +190,7 @@
     <div>
       <div id="score-pct" class="score-big">0%</div>
       <div id="score-detail" class="score-sub"></div>
+      <div id="score-compare" class="score-compare hidden"></div>
     </div>
     <span id="pass-badge" class="badge"></span>
   </div>

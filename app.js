@@ -3,7 +3,9 @@
 
   var E = window.ExamEngine;
   var STORE_KEY = "claude-exams:v1:active-attempt";
+  var HISTORY_KEY = "claude-exams:v1:history";
   var SCHEMA = 1;
+  var HISTORY_LIMIT = 200;   // FIFO cap so storage can't grow without bound
 
   var state = {
     course: null,
@@ -11,6 +13,7 @@
     scenarioById: {},
     current: 0,
     deadline: null,      // epoch ms; the timer is derived from this, never decremented
+    startedAt: null,
     timerId: null,
     submitted: false,
     reviewFilter: "all"
@@ -74,6 +77,7 @@
         code: state.course.code,
         fingerprint: E.bankFingerprint(state.course),
         deadline: state.deadline,
+        startedAt: state.startedAt,
         current: state.current,
         questions: state.examQuestions.map(function(q){
           return {
@@ -90,6 +94,90 @@
 
   function clearAttempt(){
     try { localStorage.removeItem(STORE_KEY); } catch (e) {}
+  }
+
+  // ---------- attempt history ----------
+  // Results only: score, timing and the per-domain breakdown. No question text and no
+  // answers, so the record stays small and reveals nothing about the bank.
+  function readHistory(){
+    var raw;
+    try { raw = localStorage.getItem(HISTORY_KEY); } catch (e) { return { schema: SCHEMA, attempts: [] }; }
+    if (!raw) return { schema: SCHEMA, attempts: [] };
+    try {
+      var h = JSON.parse(raw);
+      if (!h || h.schema !== SCHEMA || !Array.isArray(h.attempts)) return { schema: SCHEMA, attempts: [] };
+      return h;
+    } catch (e) { return { schema: SCHEMA, attempts: [] }; }
+  }
+
+  function writeHistory(h){
+    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); } catch (e) {}
+  }
+
+  function recordAttempt(rec){
+    var h = readHistory();
+    h.attempts.push(rec);
+    if (h.attempts.length > HISTORY_LIMIT) h.attempts = h.attempts.slice(-HISTORY_LIMIT);
+    writeHistory(h);
+  }
+
+  function historyFor(code){
+    return readHistory().attempts
+      .filter(function(a){ return a.code === code; })
+      .sort(function(a, b){ return b.at - a.at; });
+  }
+
+  function clearHistory(code){
+    var h = readHistory();
+    h.attempts = code ? h.attempts.filter(function(a){ return a.code !== code; }) : [];
+    writeHistory(h);
+  }
+
+  function fmtDate(ms){
+    var d = new Date(ms);
+    return d.toLocaleDateString(undefined, { day:"numeric", month:"short", year:"numeric" }) +
+           " " + d.toLocaleTimeString(undefined, { hour:"2-digit", minute:"2-digit" });
+  }
+
+  function exportHistory(){
+    var h = readHistory();
+    if (!h.attempts.length){ announce("There is no history to export."); return; }
+    var blob = new Blob([JSON.stringify(h, null, 2)], { type: "application/json" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "claude-exam-history-" + new Date().toISOString().slice(0,10) + ".json";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 0);
+    announce("History exported.");
+  }
+
+  function importHistory(file){
+    var reader = new FileReader();
+    reader.onload = function(){
+      var incoming;
+      try { incoming = JSON.parse(reader.result); }
+      catch (e) { window.alert("That file could not be read as exam history."); return; }
+      if (!incoming || incoming.schema !== SCHEMA || !Array.isArray(incoming.attempts)){
+        window.alert("That file is not a compatible exam history export.");
+        return;
+      }
+      var h = readHistory();
+      var seen = new Set(h.attempts.map(function(a){ return a.code + "@" + a.at; }));
+      var added = 0;
+      incoming.attempts.forEach(function(a){
+        if (!a || typeof a.at !== "number" || !a.code) return;
+        var key = a.code + "@" + a.at;
+        if (seen.has(key)) return;       // merge rather than duplicate
+        seen.add(key); h.attempts.push(a); added++;
+      });
+      h.attempts.sort(function(x, y){ return x.at - y.at; });
+      if (h.attempts.length > HISTORY_LIMIT) h.attempts = h.attempts.slice(-HISTORY_LIMIT);
+      writeHistory(h);
+      if (state.course) renderHistory();
+      window.alert(added + " attempt(s) imported.");
+    };
+    reader.readAsText(file);
   }
 
   function readSavedAttempt(){
@@ -120,6 +208,7 @@
     });
     state.current = Math.min(saved.data.current || 0, state.examQuestions.length - 1);
     state.deadline = saved.data.deadline;
+    state.startedAt = saved.data.startedAt || (saved.data.deadline - saved.course.minutes * 60 * 1000);
     state.submitted = false;
     enterExam();
     announce("Resumed your previous attempt with " + fmtTime(remainingSeconds()) + " remaining.");
@@ -203,6 +292,73 @@
     });
     bar.setAttribute("aria-label",
       "Domain weighting: " + c.domains.map(function(d){ return d.name + " " + d.weight + " percent"; }).join(", "));
+    renderHistory();
+  }
+
+  function renderHistory(){
+    var c = state.course;
+    var list = historyFor(c.code);
+    var panel = $("history-panel");
+    var body = $("history-body");
+    body.innerHTML = "";
+
+    if (!list.length){
+      body.innerHTML = '<p class="presubmit-empty">No attempts recorded on this device yet.</p>';
+      $("history-stats").textContent = "";
+      panel.classList.remove("hidden");
+      return;
+    }
+
+    var best = list.reduce(function(m, a){ return a.scaled > m.scaled ? a : m; }, list[0]);
+    var avg = Math.round(list.reduce(function(s2, a){ return s2 + a.scaled; }, 0) / list.length);
+    var passes = list.filter(function(a){ return a.pass; }).length;
+    $("history-stats").textContent =
+      list.length + " attempt" + (list.length === 1 ? "" : "s") +
+      " · best " + best.scaled + " · average " + avg + " · " + passes + " above the pass mark";
+
+    var table = document.createElement("table");
+    table.className = "history-table";
+    table.innerHTML =
+      '<thead><tr><th scope="col">When</th><th scope="col">Score</th>' +
+      '<th scope="col">Scaled</th><th scope="col">Time</th><th scope="col">Result</th></tr></thead>';
+    var tb = document.createElement("tbody");
+    list.slice(0, 10).forEach(function(a){
+      var tr = document.createElement("tr");
+      tr.innerHTML =
+        '<td data-label="When">' + escapeHtml(fmtDate(a.at)) + '</td>' +
+        '<td data-label="Score" style="font-family:var(--mono)">' + a.correct + ' / ' + a.total + '</td>' +
+        '<td data-label="Scaled" style="font-family:var(--mono)">' + a.scaled + '</td>' +
+        '<td data-label="Time" style="font-family:var(--mono)">' + fmtTime(a.seconds || 0) + '</td>' +
+        '<td data-label="Result"><span class="badge-sm ' + (a.pass ? "pass" : "fail") + '">' +
+          (a.pass ? "Pass" : "Fail") + '</span></td>';
+      tb.appendChild(tr);
+    });
+    table.appendChild(tb);
+    body.appendChild(table);
+
+    // weakest domains across recent attempts, to point at what to restudy
+    var agg = {};
+    list.slice(0, 5).forEach(function(a){
+      Object.keys(a.domains || {}).forEach(function(id){
+        if (!agg[id]) agg[id] = [0, 0];
+        agg[id][0] += a.domains[id][0];
+        agg[id][1] += a.domains[id][1];
+      });
+    });
+    var weak = Object.keys(agg)
+      .filter(function(id){ return agg[id][1] >= 3; })
+      .map(function(id){ return { id: id, pct: 100 * agg[id][0] / agg[id][1] }; })
+      .sort(function(x, y){ return x.pct - y.pct; }).slice(0, 3);
+    if (weak.length){
+      var p = document.createElement("p");
+      p.className = "history-weak";
+      p.innerHTML = "Weakest across your recent attempts: " + weak.map(function(w){
+        return '<span class="swatch" style="background:' + colorFor(w.id) + '"></span>' +
+               escapeHtml(domainName(w.id)) + " (" + Math.round(w.pct) + "%)";
+      }).join(" · ");
+      body.appendChild(p);
+    }
+    panel.classList.remove("hidden");
   }
 
   // ---------- exam lifecycle ----------
@@ -210,6 +366,7 @@
     state.examQuestions = buildAttempt();
     state.current = 0;
     state.deadline = Date.now() + state.course.minutes * 60 * 1000;
+    state.startedAt = Date.now();
     state.submitted = false;
     saveAttempt();
     enterExam();
@@ -504,6 +661,40 @@
     badge.textContent = pass ? "Likely pass" : "Likely fail";
     badge.className = "badge " + (pass ? "pass" : "fail");
 
+    // Compare against history before this attempt is written into it.
+    var prior = historyFor(c.code);
+    var cmp = $("score-compare");
+    if (prior.length){
+      var bestBefore = Math.max.apply(null, prior.map(function(a){ return a.scaled; }));
+      var avgBefore = Math.round(prior.reduce(function(s2, a){ return s2 + a.scaled; }, 0) / prior.length);
+      var delta = scaled - avgBefore;
+      cmp.textContent =
+        "Attempt " + (prior.length + 1) + " on this device · " +
+        (scaled > bestBefore ? "a new best (previous best " + bestBefore + ")"
+                             : "best so far " + bestBefore) +
+        " · " + (delta === 0 ? "level with" : (delta > 0 ? "+" + delta + " above" : delta + " below")) +
+        " your average";
+      cmp.classList.remove("hidden");
+    } else {
+      cmp.textContent = "First attempt recorded on this device.";
+      cmp.classList.remove("hidden");
+    }
+
+    var domainRec = {};
+    Object.keys(byDomain).forEach(function(id){
+      domainRec[id] = [byDomain[id].correct, byDomain[id].total];
+    });
+    recordAttempt({
+      code: c.code,
+      at: Date.now(),
+      correct: correctCount,
+      total: total,
+      scaled: scaled,
+      pass: pass,
+      seconds: state.startedAt ? Math.round((Date.now() - state.startedAt) / 1000) : 0,
+      domains: domainRec
+    });
+
     var tbody = $("domain-table-body");
     tbody.innerHTML = "";
     c.domains.forEach(function(d){
@@ -583,6 +774,20 @@
 
   function setFilter(f, btn){
     state.reviewFilter = f;
+    $("history-export").addEventListener("click", exportHistory);
+    $("history-import").addEventListener("click", function(){ $("history-file").click(); });
+    $("history-file").addEventListener("change", function(){
+      if (this.files && this.files[0]) importHistory(this.files[0]);
+      this.value = "";
+    });
+    $("history-clear").addEventListener("click", function(){
+      if (!state.course) return;
+      if (!window.confirm("Delete recorded attempts for " + state.course.code + " on this device?")) return;
+      clearHistory(state.course.code);
+      renderHistory();
+      announce("History cleared for this certification.");
+    });
+
     Array.prototype.forEach.call(document.querySelectorAll(".filter-btn"), function(b){
       b.classList.toggle("active", b === btn);
       b.setAttribute("aria-pressed", b === btn ? "true" : "false");
@@ -591,7 +796,13 @@
   }
 
   // ---------- navigation between screens ----------
-  function retake(){ hide("results-screen"); show("splash-screen"); window.scrollTo(0,0); }
+  function retake(){
+    // Re-render so the history panel reflects the attempt just completed.
+    renderSplash();
+    hide("results-screen"); show("splash-screen");
+    $("splash-title").focus();
+    window.scrollTo(0,0);
+  }
   function changeCourse(){
     hide("results-screen"); hide("splash-screen"); show("course-screen");
     window.scrollTo(0,0);
@@ -626,6 +837,20 @@
       var panel = $("nav-panel");
       var open = panel.classList.toggle("open");
       this.setAttribute("aria-expanded", open ? "true" : "false");
+    });
+
+    $("history-export").addEventListener("click", exportHistory);
+    $("history-import").addEventListener("click", function(){ $("history-file").click(); });
+    $("history-file").addEventListener("change", function(){
+      if (this.files && this.files[0]) importHistory(this.files[0]);
+      this.value = "";
+    });
+    $("history-clear").addEventListener("click", function(){
+      if (!state.course) return;
+      if (!window.confirm("Delete recorded attempts for " + state.course.code + " on this device?")) return;
+      clearHistory(state.course.code);
+      renderHistory();
+      announce("History cleared for this certification.");
     });
 
     Array.prototype.forEach.call(document.querySelectorAll(".filter-btn"), function(b){

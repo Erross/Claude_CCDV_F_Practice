@@ -12,11 +12,11 @@ Free, timed, unofficial practice exams for **all four Anthropic Claude certifica
 |---|---|---|---|---|
 | Claude Certified Associate – Foundations | CCAO-F | 60 | 246 | weighted by domain |
 | Claude Certified Developer – Foundations | CCDV-F | 53 | 208 | weighted by domain |
-| Claude Certified Architect – Foundations | CCAR-F | 60 | 158 | scenario-based (4 of 6 scenarios × 15) |
+| Claude Certified Architect – Foundations | CCAR-F | 60 | 164 | scenario-based (4 of 6 scenarios × 15) |
 | Claude Certified Architect – Professional | CCAR-P | 63 | 74 | weighted by domain |
 
 - Draws a **fresh exam at random** every time you start, sampling each domain **proportionally to its official exam weight**
-- Architect Foundations reproduces the real exam's **scenario structure**: four scenarios drawn from a pool of six, with a block of questions on each. The draw is **stratified by domain**, so every exam reproduces the published domain weights rather than inheriting whatever mix the chosen scenarios happen to contain
+- Architect Foundations reproduces the real exam's **scenario structure**: four scenarios drawn from a pool of six, with a block of questions on each. The draw is **allocated by domain using max-flow**, so *every* exam hits the published domain weights exactly — not merely on average — for all 15 possible scenario combinations
 - Renders **single-select (radio) and multi-select (checkbox)** questions correctly, matching the real exam's "select N" format
 - **Countdown timer** matching each exam's limit, turning amber under 10 minutes, red under 2, and auto-submitting at zero
 - A **question navigator grid** (like real Pearson VUE-style testing software) showing answered / unanswered / flagged / current state, with click-to-jump
@@ -30,6 +30,7 @@ Free, timed, unofficial practice exams for **all four Anthropic Claude certifica
 - **Pre-submission review** listing unanswered and flagged questions before you commit
 - **Keyboard and screen-reader accessible** — native radio/checkbox controls, arrow-key navigation in the question grid, live announcements for time warnings
 - **Filterable answer review** — all, incorrect, flagged, or unanswered
+- **Attempt history** per certification: past scores, time taken, pass/fail, your weakest domains across recent attempts, and a comparison of each new result against your best and average — with JSON **export/import** so it isn't trapped in one browser
 
 ## Why it exists
 
@@ -98,13 +99,23 @@ browser tests. CI runs the same gate and **will not deploy if any of it fails**.
 
 ## Local storage and limits
 
-An in-progress attempt is saved to `localStorage` under `claude-exams:v1:active-attempt`,
-keyed by a fingerprint of the question bank. It stores question **indices**, option order,
-your answers, flags, strikeouts and the deadline — never duplicated question text. If the
+Two things are stored, both under a namespaced key so they can't collide with other
+projects on the same `github.io` origin.
+
+**`claude-exams:v1:history`** — completed attempt results: course, timestamp, score, scaled
+score, pass/fail, time taken, and the per-domain breakdown. No question text and no answers,
+so a full history stays a few kilobytes. Capped at 200 attempts, oldest evicted first. Export
+writes a JSON file; import merges by course and timestamp, so re-importing your own export
+never duplicates anything.
+
+**`claude-exams:v1:active-attempt`** — an in-progress attempt, keyed by a fingerprint of the
+question bank. It stores question **indices**, option order, your answers, flags, strikeouts
+and the deadline — never duplicated question text. If the
 bank changes underneath a saved attempt, it is rejected rather than silently restored.
 
-That means progress is **per browser and per device**. It does not sync, and clearing site
-data removes it. Private browsing may not preserve it at all.
+Both are **per browser and per device**. They do not sync, clearing site data removes them,
+and private browsing may not preserve them at all. History is for personal study tracking,
+not an authoritative record — export it if you want a durable copy.
 
 Because this is a static site, the answer keys are delivered to the browser and can be read
 by anyone who inspects the page. That is fine for a practice tool — it simply means this
