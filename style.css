@@ -390,6 +390,9 @@ p.hero-sub{
   font-size:1.12rem;
   line-height:1.6;
   margin:0 0 1.4rem;
+  /* preserves the line breaks in enumerated order-of-operations stems,
+     while still wrapping normally for every other question */
+  white-space:pre-wrap;
 }
 
 .options{

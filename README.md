@@ -6,7 +6,7 @@ A free, timed, unofficial practice exam for the **Claude Certified Developer –
 
 ## What it does
 
-- Draws a fresh **53-question exam** at random from a bank of **202 questions** every time you start, matching the official exam's item count
+- Draws a fresh **53-question exam** at random from a bank of **208 questions** every time you start, matching the official exam's item count
 - Samples each of the 8 CCDV-F domains **proportionally to its official exam weight**, so a practice run feels like the real domain mix (Applications & Integration 17 questions, Model Selection 9, down to Eval/Debugging 1)
 - Renders **single-select (radio) and multi-select (checkbox)** questions correctly, matching the real exam's "select N" format
 - **120-minute countdown timer** that turns amber under 10 minutes, red under 2, and auto-submits at zero
@@ -46,7 +46,7 @@ This repo includes `.github/workflows/pages.yml`, which auto-builds and deploys 
 ├── index.html      # the three screens: splash, exam, results
 ├── style.css       # all styling
 ├── app.js          # exam logic: weighted draw, timer, scoring, results
-├── questions.js    # the question bank (202 questions, 8 domains)
+├── questions.js    # the question bank (208 questions, 8 domains)
 └── README.md
 ```
 
