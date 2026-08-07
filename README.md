@@ -1,13 +1,22 @@
-# CCDV-F Practice Exam
+# Claude Certification Practice Exams
 
-A free, timed, unofficial practice exam for the **Claude Certified Developer – Foundations (CCDV-F)** certification. Pure static HTML/CSS/JS — no build step, no backend, no accounts. Deploy it to GitHub Pages and it just works.
+Free, timed, unofficial practice exams for **all four Anthropic Claude certifications** — Associate Foundations, Developer Foundations, Architect Foundations, and Architect Professional. Pure static HTML/CSS/JS — no build step, no backend, no accounts. Deploy it to GitHub Pages and it just works.
 
 **[Live demo →](https://erross.github.io/Claude_CCDV_F_Practice/)** *(live once you enable Pages — see below)*
 
 ## What it does
 
-- Draws a fresh **53-question exam** at random from a bank of **208 questions** every time you start, matching the official exam's item count
-- Samples each of the 8 CCDV-F domains **proportionally to its official exam weight**, so a practice run feels like the real domain mix (Applications & Integration 17 questions, Model Selection 9, down to Eval/Debugging 1)
+- Covers **all four Claude certifications** — pick one from the splash screen and the exam adapts its item count, time limit, pass mark, and domain blueprint:
+
+| Exam | Code | Items | Bank | Format |
+|---|---|---|---|---|
+| Claude Certified Associate – Foundations | CCAO-F | 60 | 238 | weighted by domain |
+| Claude Certified Developer – Foundations | CCDV-F | 53 | 208 | weighted by domain |
+| Claude Certified Architect – Foundations | CCAR-F | 60 | 120 | scenario-based (4 of 6 scenarios × 15) |
+| Claude Certified Architect – Professional | CCAR-P | 63 | 74 | weighted by domain |
+
+- Draws a **fresh exam at random** every time you start, sampling each domain **proportionally to its official exam weight**
+- Architect Foundations reproduces the real exam's **scenario structure**: four scenarios drawn from a pool of six, with a block of questions on each
 - Renders **single-select (radio) and multi-select (checkbox)** questions correctly, matching the real exam's "select N" format
 - **120-minute countdown timer** that turns amber under 10 minutes, red under 2, and auto-submits at zero
 - A **question navigator grid** (like real Pearson VUE-style testing software) showing answered / unanswered / flagged / current state, with click-to-jump
@@ -19,7 +28,7 @@ A free, timed, unofficial practice exam for the **Claude Certified Developer –
 
 ## Why it exists
 
-Anthropic's Claude Certification Program (CCAO-F, CCDV-F, CCA-F, CCA-P) is new as of mid-2026. Existing prep material is almost entirely paid (Udemy courses, "dumps" sites, PDF bundles). At the time this was built, there wasn't a free, open-source, GitHub-published practice-exam *application* — with realistic timing, strikeout, weighted random draw, and domain-level scoring — for any of the four Claude certifications. This fills that gap for CCDV-F.
+Anthropic's Claude Certification Program (CCAO-F, CCDV-F, CCA-F, CCA-P) is new as of mid-2026. Existing prep material is almost entirely paid (Udemy courses, "dumps" sites, PDF bundles). At the time this was built, there wasn't a free, open-source, GitHub-published practice-exam *application* — with realistic timing, strikeout, weighted random draw, and domain-level scoring — for any of the four Claude certifications. This covers all four.
 
 ## Running it
 
@@ -43,33 +52,38 @@ This repo includes `.github/workflows/pages.yml`, which auto-builds and deploys 
 ## File structure
 
 ```
-├── index.html      # the three screens: splash, exam, results
+├── index.html      # four screens: course picker, splash, exam, results
 ├── style.css       # all styling
-├── app.js          # exam logic: weighted draw, timer, scoring, results
-├── questions.js    # the question bank (208 questions, 8 domains)
+├── app.js          # exam logic: weighted + scenario draw, timer, scoring, results
+├── courses.js      # course registry
+├── data/           # one question bank per certification
+├── tools/audit.js  # quality harness (run: node tools/audit.js)
 └── README.md
 ```
 
 ## Adding or editing questions
 
-All content lives in `questions.js` as a flat array. Each entry looks like:
+Questions live in `data/<code>.js` as a flat array on the course object. Each entry looks like:
 
 ```js
 {
-  d: "D5",                       // domain id — must match a DOMAINS entry
+  d: "D5",                       // domain id — must match one of the course's domains
   t: "s",                        // "s" = single-select, "m" = multi-select
   q: "Question text?",
   o: ["Option A", "Option B", "Option C", "Option D"],
   c: [1],                        // index/indices of the correct option(s)
-  e: "One-line rationale shown on the results review page."
+  e: "One-line rationale shown on the results review page.",
+  sc: "support"                  // scenario id — scenario-based courses only
 }
 ```
 
-Update `examCount` in the `DOMAINS` array (also in `questions.js`) if you want to change how many questions are drawn per domain — the values there are pre-calculated from the official blueprint weights (largest-remainder apportionment) and sum to 53, the official exam's item count.
+Each course lives in `data/<code>.js` and registers itself via `registerCourse({...})`. Update `examCount` on a course's domains to change how many questions it draws — the values are apportioned from the official blueprint weights by largest remainder and sum to that exam's item count.
+
+After any change, run `node tools/audit.js` — it checks structural integrity, answer-length bias, duplicate and near-duplicate options, absolute-word tells, positional explanations, sequence-item permutations, blueprint coverage, and 500 simulated draws per course.
 
 ## Accuracy notes
 
-- Question content is original, written to mirror the publicly documented CCDV-F exam blueprint (domains, weights, topic areas, and the kinds of tradeoffs/distractors the exam guide describes) — it is **not** sourced from Anthropic's actual exam bank and should not be treated as leaked exam content.
+- Question content is original, written to mirror the publicly documented exam blueprints (domains, weights, topic areas, and the kinds of tradeoffs/distractors the exam guide describes) — it is **not** sourced from Anthropic's actual exam bank and should not be treated as leaked exam content.
 - The "approximate scaled score" on the results page is a simple linear mapping (percent correct → 100–1000 scale) shown for practice-motivation purposes only. Anthropic's real exam is criterion-referenced against a formal standard-setting study, so your actual scaled score will not map exactly to a percent-correct calculation.
 - Domain weights, question counts, and format details reflect Exam Guide v1.0 (effective July 2026). Anthropic may update the blueprint; check the official exam guide before relying on this for final exam-day prep.
 

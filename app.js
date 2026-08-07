@@ -1,19 +1,13 @@
 (function(){
   "use strict";
 
-  var EXAM_SECONDS = 120 * 60;
-
-  var DOMAIN_COLORS = {
-    D2: "#54c7b8", D5: "#e8a33d", D1: "#7f9ce8", D6: "#e86ba0",
-    D8: "#9d7fe8", D7: "#e5646a", D3: "#6bc9e8", D4: "#8fd16b"
-  };
-
   var state = {
+    course: null,
     examQuestions: [],
+    scenarioById: {},
     current: 0,
-    timeLeft: EXAM_SECONDS,
+    timeLeft: 0,
     timerId: null,
-    startedAt: null,
     submitted: false
   };
 
@@ -28,8 +22,7 @@
   }
 
   function pickN(arr, n){
-    var shuffled = shuffle(arr);
-    return shuffled.slice(0, Math.min(n, shuffled.length));
+    return shuffle(arr).slice(0, Math.min(n, arr.length));
   }
 
   function fmtTime(sec){
@@ -39,79 +32,165 @@
   }
 
   function domainName(id){
-    var d = DOMAINS.find(function(x){ return x.id === id; });
+    var d = state.course.domains.find(function(x){ return x.id === id; });
     return d ? d.name : id;
   }
-  function domainWeight(id){
-    var d = DOMAINS.find(function(x){ return x.id === id; });
-    return d ? d.weight : 0;
+
+  function colorFor(id){ return window.domainColor(state.course, id); }
+
+  function escapeHtml(str){
+    var d = document.createElement("div");
+    d.textContent = str;
+    return d.innerHTML;
   }
+
+  function show(id){ document.getElementById(id).classList.remove("hidden"); }
+  function hide(id){ document.getElementById(id).classList.add("hidden"); }
 
   // ---------- build exam ----------
-  function buildExam(){
-    var byDomain = {};
-    QUESTIONS.forEach(function(q){
-      if (!byDomain[q.d]) byDomain[q.d] = [];
-      byDomain[q.d].push(q);
-    });
-
-    var examQs = [];
-    DOMAINS.forEach(function(dom){
-      var pool = byDomain[dom.id] || [];
-      var drawn = pickN(pool, dom.examCount);
-      drawn.forEach(function(orig){
-        // shuffle option order and remap correct indices + selected strike state
-        var order = shuffle(orig.o.map(function(_, i){ return i; }));
-        var newOptions = order.map(function(i){ return orig.o[i]; });
-        var newCorrect = orig.c.map(function(ci){ return order.indexOf(ci); }).sort(function(a,b){return a-b;});
-        examQs.push({
-          domain: orig.d,
-          type: orig.t,
-          question: orig.q,
-          options: newOptions,
-          correct: newCorrect,
-          explanation: orig.e,
-          userAnswer: [],
-          flagged: false,
-          struck: {}
-        });
-      });
-    });
-
-    return shuffle(examQs);
+  function prepare(orig){
+    var order = shuffle(orig.o.map(function(_, i){ return i; }));
+    var newOptions = order.map(function(i){ return orig.o[i]; });
+    var newCorrect = orig.c.map(function(ci){ return order.indexOf(ci); })
+                           .sort(function(a,b){ return a-b; });
+    return {
+      domain: orig.d,
+      type: orig.t,
+      question: orig.q,
+      scenario: orig.sc || null,
+      options: newOptions,
+      correct: newCorrect,
+      explanation: orig.e,
+      userAnswer: [],
+      flagged: false,
+      struck: {}
+    };
   }
 
-  // ---------- splash ----------
-  function renderSplashWeights(){
+  // Scenario exams present a pool of scenarios, draw a subset, and ask a block of
+  // questions about each. Question order stays grouped so the context reads sensibly.
+  function buildScenarioExam(course){
+    var chosen = pickN(course.scenarios, course.scenarioDraw.scenarios);
+    var out = [];
+    chosen.forEach(function(sc){
+      var pool = course.questions.filter(function(q){ return q.sc === sc.id; });
+      pickN(pool, course.scenarioDraw.perScenario).forEach(function(q){
+        out.push(prepare(q));
+      });
+    });
+    return out;
+  }
+
+  function buildWeightedExam(course){
+    var byDomain = {};
+    course.questions.forEach(function(q){
+      (byDomain[q.d] = byDomain[q.d] || []).push(q);
+    });
+    var out = [];
+    course.domains.forEach(function(dom){
+      pickN(byDomain[dom.id] || [], dom.examCount).forEach(function(q){
+        out.push(prepare(q));
+      });
+    });
+    return shuffle(out);
+  }
+
+  function buildExam(course){
+    return window.isScenarioCourse(course)
+      ? buildScenarioExam(course)
+      : buildWeightedExam(course);
+  }
+
+  // ---------- course picker ----------
+  function renderCoursePicker(){
+    var wrap = document.getElementById("course-list");
+    wrap.innerHTML = "";
+    window.getCourses().forEach(function(c){
+      var card = document.createElement("button");
+      card.type = "button";
+      card.className = "course-card";
+      card.innerHTML =
+        '<div class="cc-code">' + escapeHtml(c.code) + '</div>' +
+        '<div class="cc-name">' + escapeHtml(c.name) + '</div>' +
+        '<div class="cc-tier">' + escapeHtml(c.tier) + '</div>' +
+        '<div class="cc-blurb">' + escapeHtml(c.blurb) + '</div>' +
+        '<div class="cc-meta">' +
+          '<span>' + c.items + ' questions</span>' +
+          '<span>' + c.minutes + ' min</span>' +
+          '<span>' + c.questions.length + ' in bank</span>' +
+        '</div>';
+      card.addEventListener("click", function(){ selectCourse(c.code); });
+      wrap.appendChild(card);
+    });
+  }
+
+  function selectCourse(code){
+    state.course = window.getCourse(code);
+    state.scenarioById = {};
+    if (window.isScenarioCourse(state.course)){
+      state.course.scenarios.forEach(function(s){ state.scenarioById[s.id] = s; });
+    }
+    renderSplash();
+    hide("course-screen");
+    show("splash-screen");
+    window.scrollTo(0,0);
+  }
+
+  function renderSplash(){
+    var c = state.course;
+    document.getElementById("splash-title").textContent =
+      "Practice for the " + c.name + " – " + c.tier + " exam";
+    document.getElementById("splash-code").textContent = c.code + "//";
+    document.getElementById("splash-sub").textContent =
+      c.items + " questions, drawn at random from a bank of " + c.questions.length +
+      ", weighted to match the official domain blueprint. Timed to " + c.minutes +
+      " minutes, with a question navigator, flag-for-review, and a strikeout tool.";
+
+    document.getElementById("stat-items").textContent = c.items;
+    document.getElementById("stat-time").innerHTML = c.minutes + '<span style="font-size:.9rem">m</span>';
+    document.getElementById("stat-pass").textContent = c.passScore;
+    document.getElementById("stat-bank").textContent = c.questions.length;
+
+    var note = document.getElementById("format-note");
+    if (window.isScenarioCourse(c)){
+      note.textContent = "This exam is scenario-based: " + c.scenarioDraw.scenarios +
+        " scenarios are drawn from a pool of " + c.scenarios.length + ", with " +
+        c.scenarioDraw.perScenario + " questions on each.";
+      note.classList.remove("hidden");
+    } else {
+      note.classList.add("hidden");
+    }
+
     var bar = document.getElementById("weight-bar");
     var legend = document.getElementById("weight-legend");
-    bar.innerHTML = "";
-    legend.innerHTML = "";
-    DOMAINS.forEach(function(d){
+    bar.innerHTML = ""; legend.innerHTML = "";
+    c.domains.forEach(function(d){
       var seg = document.createElement("div");
       seg.className = "weight-seg";
       seg.style.width = d.weight + "%";
-      seg.style.background = DOMAIN_COLORS[d.id];
+      seg.style.background = colorFor(d.id);
       seg.textContent = d.weight >= 6 ? d.weight + "%" : "";
       seg.title = d.name + " — " + d.weight + "%";
       bar.appendChild(seg);
 
       var item = document.createElement("div");
       item.className = "weight-legend-item";
-      item.innerHTML = '<span class="swatch" style="background:' + DOMAIN_COLORS[d.id] + '"></span>' +
-        d.name + ' <span style="color:var(--text-faint)">(' + d.weight + '%, ' + d.examCount + ' Q)</span>';
+      var count = d.examCount != null ? ", " + d.examCount + " Q" : "";
+      item.innerHTML = '<span class="swatch" style="background:' + colorFor(d.id) + '"></span>' +
+        escapeHtml(d.name) + ' <span style="color:var(--text-faint)">(' + d.weight + '%' + count + ')</span>';
       legend.appendChild(item);
     });
   }
 
+  // ---------- exam lifecycle ----------
   function startExam(){
-    state.examQuestions = buildExam();
+    var c = state.course;
+    state.examQuestions = buildExam(c);
     state.current = 0;
-    state.timeLeft = EXAM_SECONDS;
+    state.timeLeft = c.minutes * 60;
     state.submitted = false;
-    document.getElementById("splash-screen").classList.add("hidden");
-    document.getElementById("results-screen").classList.add("hidden");
-    document.getElementById("exam-screen").classList.remove("hidden");
+    document.getElementById("exam-code").textContent = c.code + "//";
+    hide("splash-screen"); hide("results-screen"); show("exam-screen");
     renderNavGrid();
     renderQuestion();
     startTimer();
@@ -119,22 +198,15 @@
   }
 
   function beforeUnloadHandler(e){
-    if (!state.submitted){
-      e.preventDefault();
-      e.returnValue = "";
-    }
+    if (!state.submitted){ e.preventDefault(); e.returnValue = ""; }
   }
 
-  // ---------- timer ----------
   function startTimer(){
     updateTimerDisplay();
     state.timerId = setInterval(function(){
       state.timeLeft--;
       updateTimerDisplay();
-      if (state.timeLeft <= 0){
-        clearInterval(state.timerId);
-        submitExam();
-      }
+      if (state.timeLeft <= 0){ clearInterval(state.timerId); submitExam(); }
     }, 1000);
   }
 
@@ -159,10 +231,7 @@
       if (q.userAnswer.length) cell.classList.add("answered");
       if (q.flagged) cell.classList.add("flagged");
       if (i === state.current) cell.classList.add("current");
-      cell.addEventListener("click", function(){
-        state.current = i;
-        renderQuestion();
-      });
+      cell.addEventListener("click", function(){ state.current = i; renderQuestion(); });
       grid.appendChild(cell);
     });
   }
@@ -170,10 +239,23 @@
   // ---------- question rendering ----------
   function renderQuestion(){
     var q = state.examQuestions[state.current];
-    document.getElementById("progress-txt").textContent = "Question " + (state.current+1) + " / " + state.examQuestions.length;
+    document.getElementById("progress-txt").textContent =
+      "Question " + (state.current+1) + " / " + state.examQuestions.length;
 
     document.getElementById("domain-pill").textContent = domainName(q.domain);
-    document.getElementById("type-pill").textContent = q.type === "m" ? "Select multiple" : "Select one";
+    document.getElementById("type-pill").textContent =
+      q.type === "m" ? "Select multiple" : "Select one";
+
+    var scWrap = document.getElementById("scenario-panel");
+    if (q.scenario && state.scenarioById[q.scenario]){
+      var sc = state.scenarioById[q.scenario];
+      document.getElementById("scenario-title").textContent = sc.title;
+      document.getElementById("scenario-text").textContent = sc.text;
+      scWrap.classList.remove("hidden");
+    } else {
+      scWrap.classList.add("hidden");
+    }
+
     document.getElementById("q-text").textContent = q.question;
 
     var flagBtn = document.getElementById("flag-btn");
@@ -215,8 +297,8 @@
     });
 
     document.getElementById("prev-btn").disabled = state.current === 0;
-    var nextBtn = document.getElementById("next-btn");
-    nextBtn.textContent = state.current === state.examQuestions.length - 1 ? "Finish" : "Next →";
+    document.getElementById("next-btn").textContent =
+      state.current === state.examQuestions.length - 1 ? "Finish" : "Next →";
 
     renderNavGrid();
   }
@@ -233,21 +315,14 @@
   }
 
   function toggleFlag(){
-    var q = state.examQuestions[state.current];
-    q.flagged = !q.flagged;
+    state.examQuestions[state.current].flagged = !state.examQuestions[state.current].flagged;
     renderQuestion();
   }
 
-  function goPrev(){
-    if (state.current > 0){ state.current--; renderQuestion(); }
-  }
+  function goPrev(){ if (state.current > 0){ state.current--; renderQuestion(); } }
   function goNext(){
-    if (state.current < state.examQuestions.length - 1){
-      state.current++;
-      renderQuestion();
-    } else {
-      confirmSubmit();
-    }
+    if (state.current < state.examQuestions.length - 1){ state.current++; renderQuestion(); }
+    else confirmSubmit();
   }
 
   function confirmSubmit(){
@@ -273,12 +348,12 @@
     clearInterval(state.timerId);
     window.removeEventListener("beforeunload", beforeUnloadHandler);
     renderResults();
-    document.getElementById("exam-screen").classList.add("hidden");
-    document.getElementById("results-screen").classList.remove("hidden");
+    hide("exam-screen"); show("results-screen");
     window.scrollTo(0,0);
   }
 
   function renderResults(){
+    var c = state.course;
     var total = state.examQuestions.length;
     var correctCount = 0;
     var byDomain = {};
@@ -291,26 +366,29 @@
 
     var pct = Math.round((correctCount/total)*100);
     var scaled = Math.round(100 + (correctCount/total) * 900);
-    var pass = scaled >= 720;
+    var pass = scaled >= c.passScore;
 
     document.getElementById("score-pct").textContent = pct + "%";
     document.getElementById("score-detail").textContent =
-      correctCount + " / " + total + " correct · approx. scaled score " + scaled + " / 1000 (720 to pass)";
+      correctCount + " / " + total + " correct · approx. scaled score " + scaled +
+      " / 1000 (" + c.passScore + " to pass)";
     var badge = document.getElementById("pass-badge");
     badge.textContent = pass ? "Likely pass" : "Likely fail";
     badge.className = "badge " + (pass ? "pass" : "fail");
 
     var tbody = document.getElementById("domain-table-body");
     tbody.innerHTML = "";
-    DOMAINS.forEach(function(d){
-      var stat = byDomain[d.id] || { correct:0, total:0 };
+    c.domains.forEach(function(d){
+      var stat = byDomain[d.id];
+      if (!stat) return; // scenario draws may not touch every domain
       var dpct = stat.total ? Math.round((stat.correct/stat.total)*100) : 0;
       var tr = document.createElement("tr");
       tr.innerHTML =
-        '<td>' + d.name + '</td>' +
+        '<td>' + escapeHtml(d.name) + '</td>' +
         '<td style="font-family:var(--mono)">' + stat.correct + ' / ' + stat.total + '</td>' +
         '<td style="width:160px">' +
-          '<div class="mini-bar-track"><div class="mini-bar-fill" style="width:' + dpct + '%; background:' + DOMAIN_COLORS[d.id] + '"></div></div>' +
+          '<div class="mini-bar-track"><div class="mini-bar-fill" style="width:' + dpct +
+          '%; background:' + colorFor(d.id) + '"></div></div>' +
         '</td>' +
         '<td style="font-family:var(--mono); text-align:right">' + dpct + '%</td>';
       tbody.appendChild(tr);
@@ -330,6 +408,7 @@
         '<span class="status-dot ' + (correct ? "correct" : "incorrect") + '"></span>' +
         '<span class="qnum">Q' + (i+1) + '</span>' +
         '<span class="q-summary">' + escapeHtml(q.question) + '</span>';
+
       var body = document.createElement("div");
       body.className = "review-body hidden";
 
@@ -337,38 +416,37 @@
         ? q.userAnswer.map(function(idx){ return q.options[idx]; }).join("; ")
         : "(no answer selected)";
       var correctAnsText = q.correct.map(function(idx){ return q.options[idx]; }).join("; ");
+      var scLine = (q.scenario && state.scenarioById[q.scenario])
+        ? '<div><strong>Scenario:</strong> ' + escapeHtml(state.scenarioById[q.scenario].title) + '</div>'
+        : '';
 
       body.innerHTML =
-        '<div><strong>Domain:</strong> ' + domainName(q.domain) + '</div>' +
+        '<div><strong>Domain:</strong> ' + escapeHtml(domainName(q.domain)) + '</div>' +
+        scLine +
         '<div class="your-ans"><strong>Your answer:</strong> ' + escapeHtml(yourAnsText) + '</div>' +
         '<div class="correct-ans"><strong>Correct answer:</strong> ' + escapeHtml(correctAnsText) + '</div>' +
         '<div class="exp">' + escapeHtml(q.explanation) + '</div>';
 
-      head.addEventListener("click", function(){
-        body.classList.toggle("hidden");
-      });
-
+      head.addEventListener("click", function(){ body.classList.toggle("hidden"); });
       item.appendChild(head);
       item.appendChild(body);
       reviewList.appendChild(item);
     });
   }
 
-  function escapeHtml(str){
-    var d = document.createElement("div");
-    d.textContent = str;
-    return d.innerHTML;
+  function retake(){
+    hide("results-screen"); show("splash-screen");
+    window.scrollTo(0,0);
   }
 
-  function retake(){
-    document.getElementById("results-screen").classList.add("hidden");
-    document.getElementById("splash-screen").classList.remove("hidden");
+  function changeCourse(){
+    hide("results-screen"); hide("splash-screen"); show("course-screen");
     window.scrollTo(0,0);
   }
 
   // ---------- wire up ----------
   document.addEventListener("DOMContentLoaded", function(){
-    renderSplashWeights();
+    renderCoursePicker();
     document.getElementById("start-btn").addEventListener("click", startExam);
     document.getElementById("prev-btn").addEventListener("click", goPrev);
     document.getElementById("next-btn").addEventListener("click", goNext);
@@ -376,6 +454,8 @@
     document.getElementById("submit-btn").addEventListener("click", confirmSubmit);
     document.getElementById("retake-btn").addEventListener("click", retake);
     document.getElementById("retake-btn-2").addEventListener("click", retake);
+    document.getElementById("change-course-btn").addEventListener("click", changeCourse);
+    document.getElementById("change-course-btn-2").addEventListener("click", changeCourse);
   });
 
 })();
