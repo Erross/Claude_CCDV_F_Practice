@@ -329,7 +329,7 @@
       head.innerHTML =
         '<span class="status-dot ' + (correct ? "correct" : "incorrect") + '"></span>' +
         '<span class="qnum">Q' + (i+1) + '</span>' +
-        '<span>' + escapeHtml(q.question) + '</span>';
+        '<span class="q-summary">' + escapeHtml(q.question) + '</span>';
       var body = document.createElement("div");
       body.className = "review-body hidden";
 
