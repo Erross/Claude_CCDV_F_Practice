@@ -67,6 +67,49 @@ function auditCourse(c){
       add("WARN", `Q${n}: an enumerated step looks like a standing property, not an event`);
   });
 
+  // ---- clipped correct answers ----
+  // An earlier automated trim pass cut some three-item lists down to two. A correct
+  // answer far shorter than every distractor is the signature; one-word keys are fine.
+  Q.forEach((q, i) => {
+    if (q.t !== "s") return;
+    const t = q.o[q.c[0]];
+    const others = q.o.filter((_, j) => j !== q.c[0]);
+    const avg = others.reduce((s, o) => s + o.length, 0) / others.length;
+    if (t.length > 15 && t.length < avg * 0.62)
+      add("ERROR", `Q${i+1}: correct answer looks truncated (${t.length} chars vs ${Math.round(avg)} avg): "${t}"`);
+  });
+
+  // ---- conceptual duplication ----
+  // Two items testing the same lesson collapse the bank's effective size. Compare the
+  // content words of stem + correct answer; heavy overlap in the same domain is a flag.
+  const STOP = new Set(("a an the and or but of to in on for with is are be been was were it its this that these those " +
+    "what which who whom when where why how should would could most best least more less than then " +
+    "claude model output request prompt team user users task question answer response not no yes do does did " +
+    "at by from as if so such into over under about their there they them he she his her you your our we").split(" "));
+  const sig = q => {
+    const words = (q.q + " " + q.c.map(i => q.o[i]).join(" "))
+      .toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/)
+      .filter(w => w.length > 3 && !STOP.has(w));
+    return new Set(words);
+  };
+  const sigs = Q.map(sig);
+  const dupPairs = [];
+  for (let i = 0; i < Q.length; i++) {
+    for (let j = i + 1; j < Q.length; j++) {
+      if (Q[i].d !== Q[j].d) continue;              // same domain only
+      if (Q[i].sc && Q[j].sc && Q[i].sc !== Q[j].sc) continue;
+      const a = sigs[i], b = sigs[j];
+      if (a.size < 5 || b.size < 5) continue;
+      let inter = 0;
+      a.forEach(w => { if (b.has(w)) inter++; });
+      const jac = inter / (a.size + b.size - inter);
+      if (jac >= 0.5) dupPairs.push({ i, j, jac });
+    }
+  }
+  dupPairs.sort((x, y) => y.jac - x.jac).slice(0, 15).forEach(p => {
+    add("WARN", `Q${p.i+1} and Q${p.j+1} may test the same lesson (${Math.round(p.jac*100)}% term overlap): "${Q[p.i].q.slice(0,60)}..." / "${Q[p.j].q.slice(0,60)}..."`);
+  });
+
   // ---- answer-length bias ----
   const singles = Q.filter(q => q.t === "s");
   let longest = 0, shortest = 0, cLen = 0, dLen = 0, nc = 0, nd = 0;
