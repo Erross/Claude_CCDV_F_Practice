@@ -243,6 +243,7 @@
     if (!data || data.schema !== SCHEMA) { clearAttempt(); return null; }
     var course = window.getCourse(data.code);
     if (!course) { clearAttempt(); return null; }
+    if (!window.isCourseAvailable(course)) return { unavailable: true, code: data.code };
     // The bank may have been edited since the attempt was saved; indices would no
     // longer point at the same questions, so the attempt has to be discarded.
     if (data.fingerprint !== E.bankFingerprint(course)) return { stale: true, code: data.code };
@@ -280,11 +281,18 @@
     var wrap = $("course-list");
     wrap.innerHTML = "";
     window.getCourses().forEach(function(c){
+      var available = window.isCourseAvailable(c);
       var card = document.createElement("button");
       card.type = "button";
       card.className = "course-card";
+      if (!available){
+        card.classList.add("coming-soon");
+        card.disabled = true;
+        card.setAttribute("aria-disabled", "true");
+      }
       card.innerHTML =
-        '<span class="cc-code">' + escapeHtml(c.code) + '</span>' +
+        '<span class="cc-head"><span class="cc-code">' + escapeHtml(c.code) + '</span>' +
+          (!available ? '<span class="cc-status">Coming soon</span>' : '') + '</span>' +
         '<span class="cc-name">' + escapeHtml(c.name) + '</span>' +
         '<span class="cc-tier">' + escapeHtml(c.tier) + '</span>' +
         '<span class="cc-blurb">' + escapeHtml(c.blurb) + '</span>' +
@@ -293,13 +301,15 @@
           '<span>' + c.minutes + ' min</span>' +
           '<span>' + c.questions.length + ' in bank</span>' +
         '</span>';
-      card.addEventListener("click", function(){ selectCourse(c.code); });
+      if (available) card.addEventListener("click", function(){ selectCourse(c.code); });
       wrap.appendChild(card);
     });
   }
 
   function selectCourse(code){
-    state.course = window.getCourse(code);
+    var course = window.getCourse(code);
+    if (!window.isCourseAvailable(course)) return;
+    state.course = course;
     indexScenarios();
     renderSplash();
     showScreen("splash-screen", "splash-title");
@@ -432,6 +442,7 @@
 
   // ---------- exam lifecycle ----------
   function startExam(){
+    if (!window.isCourseAvailable(state.course)) return;
     state.examQuestions = buildAttempt();
     state.current = 0;
     state.deadline = Date.now() + state.course.minutes * 60 * 1000;
@@ -1003,7 +1014,16 @@
 
     // Offer to resume an interrupted attempt.
     var saved = readSavedAttempt();
-    if (saved && saved.stale){
+    if (saved && saved.unavailable){
+      $("resume-bar").classList.remove("hidden");
+      $("resume-text").textContent =
+        "A saved attempt for " + saved.code + " cannot be resumed because this practice exam is coming soon while it completes audit.";
+      $("resume-go").classList.add("hidden");
+      $("resume-dismiss").textContent = "Dismiss";
+      $("resume-dismiss").addEventListener("click", function(){
+        clearAttempt(); $("resume-bar").classList.add("hidden");
+      });
+    } else if (saved && saved.stale){
       $("resume-bar").classList.remove("hidden");
       $("resume-text").textContent =
         "A saved attempt for " + saved.code + " could not be restored because the question bank has changed since.";

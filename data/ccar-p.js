@@ -6,6 +6,7 @@ registerCourse({
   code: "CCAR-P",
   name: "Claude Certified Architect",
   tier: "Professional",
+  status: "coming-soon",
   blurb: "Owning a production Claude system end to end: solution design, enterprise integration, evaluation, governance, and the stakeholder work around it.",
   audience: "Mid- to senior-level solution architects, AI/ML engineers, and technical leads delivering production-grade Claude systems.",
   items: 63,

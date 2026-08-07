@@ -1,19 +1,19 @@
 # Claude Certification Practice Exams
 
-Free, timed, unofficial practice exams for **all four Anthropic Claude certifications** — Associate Foundations, Developer Foundations, Architect Foundations, and Architect Professional. Pure static HTML/CSS/JS — no build step, no backend, no accounts. Deploy it to GitHub Pages and it just works.
+Free, timed, unofficial practice exams for Anthropic Claude certifications. Associate Foundations, Developer Foundations, and Architect Foundations are available now; Architect Professional remains in the application as **coming soon** while its question bank completes audit. Pure static HTML/CSS/JS — no build step, no backend, no accounts. Deploy it to GitHub Pages and it just works.
 
 **[Live demo →](https://erross.github.io/Claude_CCDV_F_Practice/)** *(live once you enable Pages — see below)*
 
 ## What it does
 
-- Covers **all four Claude certifications** — pick one from the splash screen and the exam adapts its item count, time limit, pass mark, and domain blueprint:
+- Includes all four Claude certification architectures, with three currently released. Pick an available course from the splash screen and the exam adapts its item count, time limit, pass mark, and domain blueprint:
 
-| Exam | Code | Items | Bank | Format |
-|---|---|---|---|---|
-| Claude Certified Associate – Foundations | CCAO-F | 60 | 246 | weighted by domain |
-| Claude Certified Developer – Foundations | CCDV-F | 53 | 208 | weighted by domain |
-| Claude Certified Architect – Foundations | CCAR-F | 60 | 164 | scenario-based (4 of 6 scenarios × 15) |
-| Claude Certified Architect – Professional | CCAR-P | 63 | 74 | weighted by domain |
+| Exam | Code | Items | Bank | Format | Status |
+|---|---|---:|---:|---|---|
+| Claude Certified Associate – Foundations | CCAO-F | 60 | 246 | weighted by domain | Available |
+| Claude Certified Developer – Foundations | CCDV-F | 53 | 208 | weighted by domain | Available |
+| Claude Certified Architect – Foundations | CCAR-F | 60 | 164 | scenario-based (4 of 6 scenarios × 15) | Available |
+| Claude Certified Architect – Professional | CCAR-P | 63 | 74 | weighted by domain | Coming soon — audit pending |
 
 - Draws a **fresh exam at random** every time you start, sampling each domain **proportionally to its official exam weight**
 - Architect Foundations reproduces the real exam's **scenario structure**: four scenarios drawn from a pool of six, with a block of questions on each. The draw is **allocated by domain using max-flow**, so *every* exam hits the published domain weights exactly — not merely on average — for all 15 possible scenario combinations

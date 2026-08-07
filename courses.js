@@ -12,6 +12,7 @@
 //   minutes:     time limit,
 //   passScore:   scaled score needed to pass (100-1000 scale),
 //   fee:         Anthropic's published exam fee, for reference only,
+//   status:      "coming-soon" keeps an unreleased course registered but inaccessible,
 //   domains:     [{ id, name, weight, examCount }]  (examCount omitted for scenario exams),
 //   scenarioDraw:{ scenarios: 4, perScenario: 15 }  (scenario-based exams only),
 //   scenarios:   [{ id, title, text }]              (scenario-based exams only),
@@ -36,6 +37,12 @@
       if (COURSES[i].code === code) return COURSES[i];
     }
     return null;
+  };
+
+  // Courses are released by default. This lets a bank remain loaded, audited and
+  // exercised by the shared engine while the web interface keeps it unavailable.
+  global.isCourseAvailable = function (course) {
+    return !!course && course.status !== "coming-soon";
   };
 
   // Scenario exams don't carry per-domain examCount, so derive the domain mix
@@ -63,6 +70,7 @@
       getCourses: global.getCourses,
       getCourse: global.getCourse,
       registerCourse: global.registerCourse,
+      isCourseAvailable: global.isCourseAvailable,
       isScenarioCourse: global.isScenarioCourse,
       domainColor: global.domainColor
     };

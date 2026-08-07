@@ -27,7 +27,7 @@ function boot(opts) {
   const w = dom.window;
   if (opts.width) Object.defineProperty(w, "innerWidth", { value: opts.width, configurable: true });
   // minimal localStorage
-  const store = {};
+  const store = Object.assign({}, opts.store || {});
   Object.defineProperty(w, "localStorage", { value: {
     getItem: k => (k in store ? store[k] : null),
     setItem: (k, v) => { store[k] = String(v); },
@@ -61,6 +61,29 @@ t("course picker renders all four certifications", () => {
   const { d } = boot();
   const cards = d.querySelectorAll(".course-card");
   assert(cards.length === 4, "expected 4 course cards, got " + cards.length);
+  assert(d.querySelectorAll(".course-card:not(:disabled)").length === 3, "expected 3 released courses");
+});
+
+t("Architect Professional is visible as coming soon but cannot be selected", () => {
+  const { d } = boot();
+  const cards = Array.from(d.querySelectorAll(".course-card"));
+  const card = cards.find(c => c.querySelector(".cc-code").textContent === "CCAR-P");
+  assert(card, "CCAR-P card missing");
+  assert(card.disabled, "CCAR-P card is enabled");
+  assert(card.classList.contains("coming-soon"), "CCAR-P lacks coming-soon state");
+  assert(card.textContent.includes("Coming soon"), "coming-soon label missing");
+  card.click();
+  assert(!d.getElementById("course-screen").classList.contains("hidden"), "disabled course opened");
+  assert(d.getElementById("splash-screen").classList.contains("hidden"), "splash opened for CCAR-P");
+});
+
+t("a saved Architect Professional attempt cannot bypass the coming-soon gate", () => {
+  const saved = JSON.stringify({ schema: 1, code: "CCAR-P" });
+  const { d } = boot({ store: { "claude-exams:v1:active-attempt": saved } });
+  assert(!d.getElementById("resume-bar").classList.contains("hidden"), "unavailable attempt not explained");
+  assert(d.getElementById("resume-go").classList.contains("hidden"), "resume remains available");
+  assert(d.getElementById("resume-text").textContent.includes("coming soon"), "coming-soon message missing");
+  assert(d.getElementById("exam-screen").classList.contains("hidden"), "unavailable exam opened");
 });
 
 t("selecting a course reveals the splash with its figures", () => {
