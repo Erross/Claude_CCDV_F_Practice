@@ -66,6 +66,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
+      # The artifact is generated here, not carried over from validate, so it has to be
+      # built on the same pinned Node as the job that proved it excludes gated banks.
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "20"
+
       # Publish only the runtime files. Deploying the repository root would also
       # expose the generator scripts and audit tooling through the site.
       - name: Stage runtime assets

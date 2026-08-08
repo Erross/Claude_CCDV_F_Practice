@@ -490,6 +490,19 @@ p.hero-sub{
 }
 .mini-bar-fill{ height:100%; background:var(--accent); }
 
+/* Replaces style="" attributes that used to be built into innerHTML strings, so the
+   Content-Security-Policy can forbid inline styles outright. */
+.stat-chip .num .unit{ font-size:.9rem; }
+.weight-legend-item .faint{ color:var(--text-faint); }
+.domain-table .num{ font-family:var(--mono); }
+.domain-table .num-right{ text-align:right; }
+.domain-table th.col-progress{ width:160px; }
+.domain-table th.col-percent{ text-align:right; }
+.nav-legend .swatch-answered{ background:var(--accent-dim); border-color:var(--accent); }
+.nav-legend .swatch-unanswered{ background:var(--panel-2); }
+.nav-legend .swatch-flagged{ background:var(--accent-2); border-radius:50%; }
+.cta-row .cta-note{ color:var(--text-faint); font-size:.85rem; }
+
 .review-item{
   border:1px solid var(--border);
   border-radius:var(--radius);

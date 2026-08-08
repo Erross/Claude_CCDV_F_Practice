@@ -19,6 +19,22 @@ const t = (n, f) => { try { f(); pass++; console.log("  pass  " + n); }
 const assert = (c, m) => { if (!c) throw new Error(m || "assertion failed"); };
 const eq = (a, b, m) => { if (a !== b) throw new Error((m || "not equal") + ": got " + a + ", expected " + b); };
 
+// Read the script list out of index.html rather than restating it here. A hard-coded list
+// silently diverges the moment a bank is released or a file is added: the suite would keep
+// passing against an application that is not the one being shipped.
+let SCRIPT_CACHE = null;
+function runtimeScripts() {
+  if (SCRIPT_CACHE) return SCRIPT_CACHE;
+  const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+  const found = [];
+  const re = /<script\s+src="([^"]+)"/g;
+  let m;
+  while ((m = re.exec(html)) !== null) found.push(m[1]);
+  if (!found.length) throw new Error("no <script src> tags found in index.html");
+  SCRIPT_CACHE = found;
+  return found;
+}
+
 function boot(opts) {
   opts = opts || {};
   const dom = new JSDOM(fs.readFileSync(path.join(ROOT, "index.html"), "utf8"), {
@@ -43,8 +59,7 @@ function boot(opts) {
   w.URL.revokeObjectURL = () => {};
   // jsdom does not implement scrollTo; stubbing it keeps real errors visible in output.
   w.scrollTo = () => {};
-  ["courses.js","catalog.js","exam.js","data/ccao-f.js","data/ccdv-f.js","data/ccar-f.js","app.js"]
-    .forEach(f => w.eval(fs.readFileSync(path.join(ROOT, f), "utf8")));
+  runtimeScripts().forEach(f => w.eval(fs.readFileSync(path.join(ROOT, f), "utf8")));
   w.document.dispatchEvent(new w.Event("DOMContentLoaded"));
   return {
     w, d: w.document, store,
@@ -762,6 +777,44 @@ t("importing a foreign file is rejected", () => {
   Object.defineProperty(fileInput, "files", { value: [{}], configurable: true });
   fileInput.dispatchEvent(new (ctx.d.defaultView.Event)("change"));
   assert(alerted.includes("not a compatible"), "bad import was not rejected: " + alerted);
+});
+
+console.log("\ncontent-security-policy");
+
+// style-src 'self' forbids style attributes that arrive through markup — parsed HTML,
+// innerHTML, or setAttribute("style", ...). It does NOT govern CSSOM assignment, so
+// el.style.width = x stays legal and is the supported way to set a computed value.
+// jsdom enforces no CSP, so the policy is asserted against the sources that would violate it.
+t("nothing reintroduces a markup-set inline style that CSP would drop", () => {
+  const { d } = boot();
+  const csp = d.querySelector('meta[http-equiv="Content-Security-Policy"]').getAttribute("content");
+  assert(/style-src 'self'(;|$)/.test(csp), "style-src still permits inline styles: " + csp);
+  assert(!csp.includes("unsafe-inline"), "CSP permits unsafe-inline");
+  assert(!csp.includes("unsafe-eval"), "CSP permits unsafe-eval");
+
+  const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+  assert(!/\sstyle="/.test(html), "index.html carries a style attribute the CSP will drop");
+
+  const app = fs.readFileSync(path.join(ROOT, "app.js"), "utf8")
+    .split("\n").filter(line => !/^\s*(\/\/|\*)/.test(line)).join("\n");
+  assert(!/setAttribute\(\s*["']style["']/.test(app), "app.js sets a style attribute directly");
+  assert(!/style=\\?["']/.test(app), "app.js builds a style attribute into a markup string");
+});
+
+t("domain colours and bar widths still render through the CSSOM", () => {
+  const ctx = boot();
+  playThrough(ctx, 1);
+  const d = ctx.d;
+
+  const swatches = d.querySelectorAll(".weight-legend .swatch");
+  assert(swatches.length > 0, "weight legend swatches missing");
+  assert(swatches[0].style.background, "swatch colour was lost with the inline styles");
+
+  const fills = d.querySelectorAll(".domain-table .mini-bar-fill");
+  assert(fills.length > 0, "domain progress bars missing");
+  assert(/%$/.test(fills[0].style.width), "progress width was lost with the inline styles");
+  assert(fills[0].style.background, "progress colour was lost with the inline styles");
+  assert(d.querySelector(".domain-table .num"), "monospace score cells lost their class");
 });
 
 console.log("\n" + pass + " passed, " + fail + " failed");

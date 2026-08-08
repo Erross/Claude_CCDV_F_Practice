@@ -45,6 +45,22 @@
     window.scrollTo(0,0);
   }
   function escapeHtml(str){ var d = document.createElement("div"); d.textContent = str; return d.innerHTML; }
+
+  // Small DOM builders. Colours and widths are applied through the CSSOM rather than
+  // interpolated into a style="" attribute, which is what lets the Content-Security-Policy
+  // drop 'unsafe-inline' from style-src. Building a style attribute in a template string
+  // is also the one place where an internal value would land in CSS rather than in text.
+  function el(tag, className, text){
+    var n = document.createElement(tag);
+    if (className) n.className = className;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+  function swatch(color){
+    var s = el("span", "swatch");
+    s.style.background = color;
+    return s;
+  }
   function domainName(id){
     var d = state.course.domains.find(function(x){ return x.id === id; });
     return d ? d.name : id;
@@ -385,7 +401,9 @@
       c.items + " questions, drawn at random from a bank of " + c.questions.length +
       ", weighted to match the official domain blueprint. Timed to " + c.minutes + " minutes.";
     $("stat-items").textContent = c.items;
-    $("stat-time").innerHTML = c.minutes + '<span style="font-size:.9rem">m</span>';
+    $("stat-time").textContent = "";
+    $("stat-time").appendChild(document.createTextNode(c.minutes));
+    $("stat-time").appendChild(el("span", "unit", "m"));
     $("stat-pass").textContent = c.passScore;
     $("stat-bank").textContent = c.questions.length;
 
@@ -410,8 +428,9 @@
       var item = document.createElement("div");
       item.className = "weight-legend-item";
       var count = d.examCount != null ? ", " + d.examCount + " Q" : "";
-      item.innerHTML = '<span class="swatch" style="background:' + colorFor(d.id) + '"></span>' +
-        escapeHtml(d.name) + ' <span style="color:var(--text-faint)">(' + d.weight + '%' + count + ')</span>';
+      item.appendChild(swatch(colorFor(d.id)));
+      item.appendChild(document.createTextNode(d.name + " "));
+      item.appendChild(el("span", "faint", "(" + d.weight + "%" + count + ")"));
       legend.appendChild(item);
     });
     bar.setAttribute("aria-label",
@@ -493,10 +512,13 @@
     if (weak.length){
       var p = document.createElement("p");
       p.className = "history-weak";
-      p.innerHTML = "Weakest across your recent attempts: " + weak.map(function(w){
-        return '<span class="swatch" style="background:' + colorFor(w.id) + '"></span>' +
-               escapeHtml(domainName(w.id)) + " (" + Math.round(w.pct) + "%)";
-      }).join(" · ");
+      p.appendChild(document.createTextNode("Weakest across your recent attempts: "));
+      weak.forEach(function(w, i){
+        if (i) p.appendChild(document.createTextNode(" · "));
+        p.appendChild(swatch(colorFor(w.id)));
+        p.appendChild(document.createTextNode(
+          domainName(w.id) + " (" + Math.round(w.pct) + "%)"));
+      });
       body.appendChild(p);
     }
     panel.classList.remove("hidden");
@@ -896,12 +918,24 @@
       if (!stat) return;
       var dpct = stat.total ? Math.round((stat.correct/stat.total)*100) : 0;
       var tr = document.createElement("tr");
-      tr.innerHTML =
-        '<td data-label="Domain">' + escapeHtml(d.name) + '</td>' +
-        '<td data-label="Correct" style="font-family:var(--mono)">' + stat.correct + ' / ' + stat.total + '</td>' +
-        '<td data-label="Progress"><div class="mini-bar-track"><div class="mini-bar-fill" style="width:' +
-          dpct + '%; background:' + colorFor(d.id) + '"></div></div></td>' +
-        '<td data-label="Percent" style="font-family:var(--mono); text-align:right">' + dpct + '%</td>';
+      function cell(label, className, text){
+        var td = el("td", className, text);
+        td.setAttribute("data-label", label);
+        tr.appendChild(td);
+        return td;
+      }
+      cell("Domain", null, d.name);
+      cell("Correct", "num", stat.correct + " / " + stat.total);
+
+      var progress = cell("Progress", null, null);
+      var track = el("div", "mini-bar-track");
+      var fill = el("div", "mini-bar-fill");
+      fill.style.width = dpct + "%";
+      fill.style.background = colorFor(d.id);
+      track.appendChild(fill);
+      progress.appendChild(track);
+
+      cell("Percent", "num num-right", dpct + "%");
       tbody.appendChild(tr);
     });
 

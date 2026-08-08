@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Claude Certification Practice Exams</title>
 <meta name="description" content="Free, timed, unofficial practice exams for the Claude Certified Associate, Developer, and Architect certifications.">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -81,7 +81,7 @@
 
   <div class="cta-row">
     <button id="start-btn" type="button" class="btn btn-primary">Start practice exam →</button>
-    <span style="color:var(--text-faint); font-size:.85rem;">No sign-up. Nothing leaves your browser.</span>
+    <span class="cta-note">No sign-up. Nothing leaves your browser.</span>
   </div>
 
   <section id="history-panel" class="history-panel hidden" aria-labelledby="history-heading">
@@ -120,9 +120,9 @@
       <h2>Questions</h2>
       <div id="nav-grid" class="nav-grid"></div>
       <div class="nav-legend">
-        <span><i style="background:var(--accent-dim); border-color:var(--accent);"></i>Answered</span>
-        <span><i style="background:var(--panel-2);"></i>Unanswered</span>
-        <span><i style="background:var(--accent-2); border-radius:50%;"></i>Flagged</span>
+        <span><i class="swatch-answered"></i>Answered</span>
+        <span><i class="swatch-unanswered"></i>Unanswered</span>
+        <span><i class="swatch-flagged"></i>Flagged</span>
       </div>
     </nav>
 
@@ -203,7 +203,7 @@
   <table class="domain-table">
     <thead>
       <tr><th scope="col">Domain</th><th scope="col">Correct</th>
-          <th scope="col" style="width:160px">Progress</th><th scope="col" style="text-align:right">%</th></tr>
+          <th scope="col" class="col-progress">Progress</th><th scope="col" class="col-percent">%</th></tr>
     </thead>
     <tbody id="domain-table-body"></tbody>
   </table>
