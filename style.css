@@ -639,6 +639,12 @@ p.hero-sub{
   font-family:var(--sans);
   font-size:.82rem;
   cursor:pointer;
+  /* Measured at 140x16 in Chrome, below the 24x24 minimum in WCAG 2.5.8. Unlike the
+     option inputs, this control has no associated label to enlarge its target. */
+  min-height:24px;
+  display:inline-flex;
+  align-items:center;
+  padding:0 .25rem;
   padding:0;
   margin-left:auto;
 }

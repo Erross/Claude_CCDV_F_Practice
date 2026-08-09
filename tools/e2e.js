@@ -391,18 +391,29 @@ t("abandoning an attempt places focus on the course picker", () => {
 console.log("\nnavigator and option behaviour");
 
 t("multi-select states how many answers are required", () => {
-  const { d, w } = boot();
-  d.querySelectorAll(".course-card")[1].click();
-  d.getElementById("start-btn").click();
-  const course = w.getCourse(d.getElementById("exam-code").textContent.replace("//",""));
-  // step through until a multi-select appears
-  let found = null;
-  for (let i = 0; i < 60 && !found; i++) {
-    const pill = d.getElementById("type-pill").textContent;
-    if (/^Select \d answers$/.test(pill)) found = pill;
-    else d.getElementById("next-btn").click();
+  // No course guarantees a multi-select item in any single draw. Every bank samples by
+  // domain, not by question type, so the count varies: CCDV-F averages 2.9 per draw and
+  // yields none in ~3.5% of them. This test used one CCDV-F draw and failed about one run
+  // in eight — enough to block deploys at random. Retrying fresh draws is what makes it
+  // deterministic in practice; twenty independent draws miss only if every one of them
+  // does, which is about 1e-30. Do not "simplify" this back to a single draw.
+  let d = null, w = null, found = null, draws = 0;
+  for (; draws < 20 && !found; draws++) {
+    ({ d, w } = boot());
+    const card = Array.from(d.querySelectorAll(".course-card"))
+      .find(c => c.querySelector(".cc-code").textContent === "CCDV-F");
+    assert(card, "CCDV-F card missing");
+    card.click();
+    d.getElementById("start-btn").click();
+
+    const items = w.getCourse("CCDV-F").items;
+    for (let i = 0; i < items && !found; i++) {
+      const pill = d.getElementById("type-pill").textContent;
+      if (/^Select \d answers$/.test(pill)) found = pill;
+      else if (i < items - 1) d.getElementById("next-btn").click();
+    }
   }
-  assert(found, "no multi-select question stated a count");
+  assert(found, "no multi-select item appeared in " + draws + " independent draws");
   assert(/Select [23] answers/.test(found), "unexpected cardinality text: " + found);
   assert(d.getElementById("q-legend").textContent.includes(found), "legend does not match the pill");
 });
