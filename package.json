@@ -7,7 +7,10 @@
     "audit": "node tools/audit.js",
     "build": "node tools/build.js",
     "test": "node tools/test.js && node tools/e2e.js && node tools/artifact-test.js",
-    "check": "node --check courses.js && node --check catalog.js && node --check exam.js && node --check app.js && node --check tools/build.js && node --check tools/artifact-test.js && npm run audit && npm test"
+    "check": "node --check courses.js && node --check catalog.js && node --check exam.js && node --check app.js && node --check tools/build.js && node --check tools/artifact-test.js && npm run audit && npm test && npm run test:cdmp",
+    "preview:cdmp": "node tools/build-cdmp-preview.js",
+    "test:cdmp": "node tools/cdmp-test.js",
+    "review:cdmp": "node tools/build-cdmp-review.js"
   },
   "devDependencies": {
     "jsdom": "^24.0.0"

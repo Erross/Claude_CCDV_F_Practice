@@ -147,3 +147,7 @@ Pull requests adding well-written questions, fixing inaccuracies, or improving a
 ## License
 
 MIT — see `LICENSE`. Not affiliated with, endorsed by, or reviewed by Anthropic. "Claude" and "Anthropic" are trademarks of Anthropic PBC.
+
+## CDMP draft work
+
+An unpublished CDMP Fundamentals pilot is isolated under `cdmp/`. See [the draft README](cdmp/README.md) for scope, provenance, preview commands, and release gates. The production catalog and build continue to exclude CDMP.

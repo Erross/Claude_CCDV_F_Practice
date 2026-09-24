@@ -864,3 +864,13 @@ p.hero-sub{
   .badge-stack{ align-items:flex-start; }
   .badge-caveat{ text-align:left; }
 }
+
+/* Optional per-exam settings; hidden for legacy courses. */
+#exam-settings { margin: 1.5rem 0; padding: 1rem; border: 1px solid var(--border); border-radius: 8px; }
+#exam-settings label { margin: .5rem; display: inline-block; }
+#exam-settings select { padding: .5rem; background: var(--panel); color: inherit; border: 1px solid var(--border); border-radius: 4px; }
+.option-rationales { padding-left: 1.5rem; }
+.option-rationales li { margin: .6rem 0; }
+.source-note { font-size: .85rem; overflow-wrap: anywhere; }
+.source-note a { color: var(--accent); }
+#threshold-detail { flex-basis: 100%; }

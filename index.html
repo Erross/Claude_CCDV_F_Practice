@@ -58,10 +58,17 @@
   <div class="stat-row">
     <div class="stat-chip"><span id="stat-items" class="num"></span><span class="lbl">Questions</span></div>
     <div class="stat-chip"><span id="stat-time" class="num"></span><span class="lbl">Time limit</span></div>
-    <div class="stat-chip"><span id="stat-pass" class="num"></span><span class="lbl">Approx. pass score</span></div>
+    <div class="stat-chip"><span id="stat-pass" class="num"></span><span id="stat-pass-label" class="lbl">Approx. pass score</span></div>
     <div class="stat-chip"><span id="stat-bank" class="num"></span><span class="lbl">Questions in bank</span></div>
   </div>
 
+  <fieldset id="exam-settings" class="hidden">
+    <legend>Practice settings</legend>
+    <label for="score-target">Score target</label>
+    <select id="score-target"><option value="60">60%</option><option value="70">70%</option><option value="80">80%</option></select>
+    <label for="timing-mode">Timing</label>
+    <select id="timing-mode"><option value="standard">Standard pace</option><option value="esl">ESL pace</option></select>
+  </fieldset>
   <p id="format-note" class="format-note hidden"></p>
 
   <h2 class="section-label">Domain weighting (mirrors the official blueprint)</h2>
@@ -209,6 +216,7 @@
   </table>
 
   <div class="results-actions">
+    <p id="threshold-detail" class="format-note hidden"></p>
     <button id="retake-btn" type="button" class="btn btn-primary">Take another practice exam →</button>
   </div>
 
