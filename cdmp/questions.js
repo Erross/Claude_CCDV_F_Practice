@@ -850,14 +850,14 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
       "Registry to transaction hub"
     ],
     "c": [
-      3
+      2
     ],
     "e": "DMBOK describes registry, transaction hub and consolidated approaches. Its consolidated approach is itself described as a hybrid; Hybrid is therefore not used here as a separate competing label.",
     "rationales": [
       "This reverses the move from retrieving source attributes to maintaining central copies.",
       "The initial design does not centralize master-data creation and update as a transaction hub.",
-      "A transaction hub becomes the system of record for master-data updates, which the stem does not describe.",
-      "The index-based design is registry; copied master attributes with continuing source maintenance characterize consolidation."
+      "The index-based design is registry; copied master attributes with continuing source maintenance characterize consolidation.",
+      "A transaction hub becomes the system of record for master-data updates, which the stem does not describe."
     ],
     "sources": [
       {

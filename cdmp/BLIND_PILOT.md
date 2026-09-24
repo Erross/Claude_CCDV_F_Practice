@@ -1,7 +1,7 @@
 # CDMP cold-review pilot
 
 Version: 0.2.0-draft
-Bank fingerprint: CDMP-DMF-PILOT-40-9do8ez14e8xq7
+Bank fingerprint: CDMP-DMF-PILOT-40-uaeouca7cz5q
 
 This unofficial draft has not been calibrated against the real exam.
 Allow 36 minutes, or 44 minutes at the ESL practice pace. You may use your own reference.
