@@ -8,6 +8,8 @@ The response is a substantive rewrite, not a release approval. Version 0.2.0 cha
 
 The revised items have not received a cold independent review. No claim is made that a 50-60% score among experienced but unstudied candidates has been achieved. That range is a proposed formative calibration target, not an official standard or a prediction of certification results.
 
+The subsequent cold review found that nine edits in commit `a46efc8` reduced depth in several items. This follow-up restores the Q004 application-architecture scenario, the Q020 registry-to-consolidated scenario, the Q029 four-A framework test, and the Q039 metadata-outage scenario, while retaining plain distractor terms and regenerating the packet. The stored order remains subject to final answer-position balancing.
+
 The [earlier editorial record](reviews/0.1.1-editorial.md) is historical. Its positive item decisions do not override the later independent review.
 
 ## Responses to the findings

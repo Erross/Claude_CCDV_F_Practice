@@ -140,15 +140,15 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "id": "CDMP-P-004",
     "d": "DA",
     "t": "s",
-    "q": "Which architecture domain defines the structure, meaning and movement of enterprise data?",
+    "q": "Which architecture domain describes the functionality and behavior provided by enterprise software packages?",
     "o": [
-      "Business architecture",
       "Data architecture",
+      "Technology architecture",
       "Application architecture",
-      "Technology architecture"
+      "Business architecture"
     ],
     "c": [
-      1
+      2
     ],
     "e": "The domains influence each other, but their primary artifacts differ: business capabilities, data organization, application functionality and the technology hosting it.",
     "rationales": [
@@ -842,12 +842,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "id": "CDMP-P-020",
     "d": "MR",
     "t": "s",
-    "q": "Which MDM architecture maintains a central index that points to source records without storing a central copy of the mastered attributes?",
+    "q": "An MDM service initially assembles customer attributes from source applications when requested, using a central identity index. It later stores resolved copies centrally, while sources still maintain their records. Which DMBOK architecture transition does this describe?",
     "o": [
-      "Consolidated",
-      "Transaction hub",
-      "Hybrid/coexistence",
-      "Registry"
+      "Transaction hub to consolidated",
+      "Consolidated to registry",
+      "Registry to consolidated",
+      "Registry to transaction hub"
     ],
     "c": [
       3
@@ -1240,15 +1240,15 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "id": "CDMP-P-029",
     "d": "DS",
     "t": "s",
-    "q": "Which security activity determines whether a requested operation is permitted for an authenticated user?",
+    "q": "Which term is not one of the four A's in DMBOK's data-security process framework?",
     "o": [
       "Access",
       "Audit",
-      "Authentication",
+      "Accountability",
       "Authorization"
     ],
     "c": [
-      3
+      2
     ],
     "e": "The item tests the particular process grouping used by DMBOK. Other security frameworks use other groupings, including availability or accountability.",
     "rationales": [
@@ -1665,11 +1665,11 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "id": "CDMP-P-039",
     "d": "MM",
     "t": "s",
-    "q": "Which metadata architecture uses a central repository that periodically harvests metadata from source tools?",
+    "q": "A catalog periodically harvests definitions from source tools into its own store. Users can query the catalog during a source outage, but may see yesterday's definitions. Which metadata architecture accounts for both observations?",
     "o": [
       "Centralized",
-      "Distributed",
       "Hybrid",
+      "Distributed",
       "Bi-directional"
     ],
     "c": [

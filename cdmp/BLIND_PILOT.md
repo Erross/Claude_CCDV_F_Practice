@@ -1,7 +1,7 @@
 # CDMP cold-review pilot
 
 Version: 0.2.0-draft
-Bank fingerprint: CDMP-DMF-PILOT-40-qumn601kz314w
+Bank fingerprint: CDMP-DMF-PILOT-40-9do8ez14e8xq7
 
 This unofficial draft has not been calibrated against the real exam.
 Allow 36 minutes, or 44 minutes at the ESL practice pace. You may use your own reference.
@@ -57,15 +57,15 @@ Response: ___ | Confidence: ___ | Looked up: ___ | Comment: ___
 
 ## 4. CDMP-P-004
 
-Which architecture domain defines the structure, meaning and movement of enterprise data?
+Which architecture domain describes the functionality and behavior provided by enterprise software packages?
 
-A. Business architecture
+A. Data architecture
 
-B. Data architecture
+B. Technology architecture
 
 C. Application architecture
 
-D. Technology architecture
+D. Business architecture
 
 Response: ___ | Confidence: ___ | Looked up: ___ | Comment: ___
 
@@ -281,15 +281,15 @@ Response: ___ | Confidence: ___ | Looked up: ___ | Comment: ___
 
 ## 20. CDMP-P-020
 
-Which MDM architecture maintains a central index that points to source records without storing a central copy of the mastered attributes?
+An MDM service initially assembles customer attributes from source applications when requested, using a central identity index. It later stores resolved copies centrally, while sources still maintain their records. Which DMBOK architecture transition does this describe?
 
-A. Consolidated
+A. Transaction hub to consolidated
 
-B. Transaction hub
+B. Consolidated to registry
 
-C. Hybrid/coexistence
+C. Registry to consolidated
 
-D. Registry
+D. Registry to transaction hub
 
 Response: ___ | Confidence: ___ | Looked up: ___ | Comment: ___
 
@@ -407,13 +407,13 @@ Response: ___ | Confidence: ___ | Looked up: ___ | Comment: ___
 
 ## 29. CDMP-P-029
 
-Which security activity determines whether a requested operation is permitted for an authenticated user?
+Which term is not one of the four A's in DMBOK's data-security process framework?
 
 A. Access
 
 B. Audit
 
-C. Authentication
+C. Accountability
 
 D. Authorization
 
@@ -547,13 +547,13 @@ Response: ___ | Confidence: ___ | Looked up: ___ | Comment: ___
 
 ## 39. CDMP-P-039
 
-Which metadata architecture uses a central repository that periodically harvests metadata from source tools?
+A catalog periodically harvests definitions from source tools into its own store. Users can query the catalog during a source outage, but may see yesterday's definitions. Which metadata architecture accounts for both observations?
 
 A. Centralized
 
-B. Distributed
+B. Hybrid
 
-C. Hybrid
+C. Distributed
 
 D. Bi-directional
 
