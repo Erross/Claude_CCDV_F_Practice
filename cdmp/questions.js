@@ -51,15 +51,15 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "id": "CDMP-P-002",
     "d": "BD",
     "t": "s",
-    "q": "DMBOK uses additional Big Data characteristics beyond volume, velocity and variety. Which pair denotes difficulty of integration and the useful lifetime of changing data, in that order?",
+    "q": "Which extended Big Data characteristic describes the useful lifetime of data before it loses value?",
     "o": [
-      "Variety; velocity",
-      "Veracity; viscosity",
-      "Viscosity; volatility",
-      "Volatility; veracity"
+      "Variety",
+      "Veracity",
+      "Viscosity",
+      "Volatility"
     ],
     "c": [
-      2
+      3
     ],
     "e": "The extended list distinguishes integration difficulty from speed, diversity, trustworthiness and useful lifetime. These are separate characteristics.",
     "rationales": [
@@ -140,12 +140,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "id": "CDMP-P-004",
     "d": "DA",
     "t": "s",
-    "q": "In DMBOK's comparison of architecture domains, where do data definitions and mapping specifications belong, and where does the functionality of enterprise software packages belong?",
+    "q": "Which architecture domain defines the structure, meaning and movement of enterprise data?",
     "o": [
-      "Business architecture; data architecture",
-      "Data architecture; application architecture",
-      "Application architecture; technology architecture",
-      "Technology architecture; business architecture"
+      "Business architecture",
+      "Data architecture",
+      "Application architecture",
+      "Technology architecture"
     ],
     "c": [
       1
@@ -276,12 +276,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "id": "CDMP-P-007",
     "d": "DC",
     "t": "s",
-    "q": "Within the recordkeeping principles discussed in DMBOK, which principle addresses efficient retrieval, and which addresses making governance policies and activities understandable to appropriate stakeholders?",
+    "q": "Which recordkeeping principle addresses efficient retrieval of records when needed?",
     "o": [
-      "Integrity; Availability",
-      "Availability; Transparency",
-      "Compliance; Protection",
-      "Transparency; Accountability"
+      "Integrity",
+      "Availability",
+      "Compliance",
+      "Transparency"
     ],
     "c": [
       1
@@ -360,12 +360,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "id": "CDMP-P-009",
     "d": "DE",
     "t": "s",
-    "q": "In the privacy-principles table discussed in DMBOK Chapter 2, which pairing distinguishes restricting the personal data collected to what is necessary from restricting how long identifiable data is kept?",
+    "q": "Which privacy principle restricts personal data collection to what is necessary for the stated purpose?",
     "o": [
-      "Purpose limitation; data minimization",
-      "Storage limitation; purpose limitation",
-      "Accuracy; accountability",
-      "Data minimization; storage limitation"
+      "Purpose limitation",
+      "Storage limitation",
+      "Accuracy",
+      "Data minimization"
     ],
     "c": [
       3
@@ -496,12 +496,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "id": "CDMP-P-012",
     "d": "DG",
     "t": "s",
-    "q": "Several divisions initially adopt the same governance structure and standards independently. The company then introduces an enterprise body to coordinate those divisions and maintain shared definitions. Which DMBOK operating-model transition best describes this?",
+    "q": "Which governance operating model gives business units local autonomy while coordinating shared standards across the enterprise?",
     "o": [
-      "Replicated to centralized",
-      "Centralized to replicated",
-      "Federated to centralized",
-      "Replicated to federated"
+      "Centralized",
+      "Replicated",
+      "Decentralized",
+      "Federated"
     ],
     "c": [
       3
@@ -632,11 +632,11 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "id": "CDMP-P-015",
     "d": "DI",
     "t": "s",
-    "q": "Which integration interaction model selects data recipients through standing registrations for a service, rather than a separate consumer request for each delivery?",
+    "q": "Which integration interaction model delivers messages to consumers that have registered interest in a service?",
     "o": [
       "Point-to-point",
-      "Hub-and-spoke without subscriptions",
-      "Request-response without subscriptions",
+      "Hub-and-spoke",
+      "Request-response",
       "Publish-subscribe"
     ],
     "c": [
@@ -842,12 +842,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "id": "CDMP-P-020",
     "d": "MR",
     "t": "s",
-    "q": "An MDM service initially assembles customer attributes from source applications when requested, using a central identity index. It later stores resolved copies centrally, while sources still maintain their records. Which DMBOK architecture transition does this describe?",
+    "q": "Which MDM architecture maintains a central index that points to source records without storing a central copy of the mastered attributes?",
     "o": [
-      "Consolidated to registry",
-      "Transaction hub to consolidated",
-      "Registry to transaction hub",
-      "Registry to consolidated"
+      "Consolidated",
+      "Transaction hub",
+      "Hybrid/coexistence",
+      "Registry"
     ],
     "c": [
       3
@@ -1240,12 +1240,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "id": "CDMP-P-029",
     "d": "DS",
     "t": "s",
-    "q": "Which set names the four A's in DMBOK's data-security process framework?",
+    "q": "Which security activity determines whether a requested operation is permitted for an authenticated user?",
     "o": [
-      "Access, Accountability, Authentication, Authorization",
-      "Access, Audit, Authentication, Accountability",
-      "Audit, Availability, Authentication, Authorization",
-      "Access, Audit, Authentication, Authorization"
+      "Access",
+      "Audit",
+      "Authentication",
+      "Authorization"
     ],
     "c": [
       3
@@ -1665,12 +1665,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "id": "CDMP-P-039",
     "d": "MM",
     "t": "s",
-    "q": "A catalog periodically harvests definitions from source tools into its own store. Users can query the catalog during a source outage, but may see yesterday's definitions. Which metadata architecture accounts for both observations?",
+    "q": "Which metadata architecture uses a central repository that periodically harvests metadata from source tools?",
     "o": [
       "Centralized",
-      "Hybrid with live source queries",
-      "Distributed without a repository",
-      "Bi-directional with live source queries"
+      "Distributed",
+      "Hybrid",
+      "Bi-directional"
     ],
     "c": [
       0

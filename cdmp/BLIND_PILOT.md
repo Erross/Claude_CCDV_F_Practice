@@ -1,7 +1,7 @@
 # CDMP cold-review pilot
 
 Version: 0.2.0-draft
-Bank fingerprint: CDMP-DMF-PILOT-40-xxgj1y2s2ces
+Bank fingerprint: CDMP-DMF-PILOT-40-qumn601kz314w
 
 This unofficial draft has not been calibrated against the real exam.
 Allow 36 minutes, or 44 minutes at the ESL practice pace. You may use your own reference.
@@ -29,15 +29,15 @@ Response: ___ | Confidence: ___ | Looked up: ___ | Comment: ___
 
 ## 2. CDMP-P-002
 
-DMBOK uses additional Big Data characteristics beyond volume, velocity and variety. Which pair denotes difficulty of integration and the useful lifetime of changing data, in that order?
+Which extended Big Data characteristic describes the useful lifetime of data before it loses value?
 
-A. Variety; velocity
+A. Variety
 
-B. Veracity; viscosity
+B. Veracity
 
-C. Viscosity; volatility
+C. Viscosity
 
-D. Volatility; veracity
+D. Volatility
 
 Response: ___ | Confidence: ___ | Looked up: ___ | Comment: ___
 
@@ -57,15 +57,15 @@ Response: ___ | Confidence: ___ | Looked up: ___ | Comment: ___
 
 ## 4. CDMP-P-004
 
-In DMBOK's comparison of architecture domains, where do data definitions and mapping specifications belong, and where does the functionality of enterprise software packages belong?
+Which architecture domain defines the structure, meaning and movement of enterprise data?
 
-A. Business architecture; data architecture
+A. Business architecture
 
-B. Data architecture; application architecture
+B. Data architecture
 
-C. Application architecture; technology architecture
+C. Application architecture
 
-D. Technology architecture; business architecture
+D. Technology architecture
 
 Response: ___ | Confidence: ___ | Looked up: ___ | Comment: ___
 
@@ -99,15 +99,15 @@ Response: ___ | Confidence: ___ | Looked up: ___ | Comment: ___
 
 ## 7. CDMP-P-007
 
-Within the recordkeeping principles discussed in DMBOK, which principle addresses efficient retrieval, and which addresses making governance policies and activities understandable to appropriate stakeholders?
+Which recordkeeping principle addresses efficient retrieval of records when needed?
 
-A. Integrity; Availability
+A. Integrity
 
-B. Availability; Transparency
+B. Availability
 
-C. Compliance; Protection
+C. Compliance
 
-D. Transparency; Accountability
+D. Transparency
 
 Response: ___ | Confidence: ___ | Looked up: ___ | Comment: ___
 
@@ -127,15 +127,15 @@ Response: ___ | Confidence: ___ | Looked up: ___ | Comment: ___
 
 ## 9. CDMP-P-009
 
-In the privacy-principles table discussed in DMBOK Chapter 2, which pairing distinguishes restricting the personal data collected to what is necessary from restricting how long identifiable data is kept?
+Which privacy principle restricts personal data collection to what is necessary for the stated purpose?
 
-A. Purpose limitation; data minimization
+A. Purpose limitation
 
-B. Storage limitation; purpose limitation
+B. Storage limitation
 
-C. Accuracy; accountability
+C. Accuracy
 
-D. Data minimization; storage limitation
+D. Data minimization
 
 Response: ___ | Confidence: ___ | Looked up: ___ | Comment: ___
 
@@ -169,15 +169,15 @@ Response: ___ | Confidence: ___ | Looked up: ___ | Comment: ___
 
 ## 12. CDMP-P-012
 
-Several divisions initially adopt the same governance structure and standards independently. The company then introduces an enterprise body to coordinate those divisions and maintain shared definitions. Which DMBOK operating-model transition best describes this?
+Which governance operating model gives business units local autonomy while coordinating shared standards across the enterprise?
 
-A. Replicated to centralized
+A. Centralized
 
-B. Centralized to replicated
+B. Replicated
 
-C. Federated to centralized
+C. Decentralized
 
-D. Replicated to federated
+D. Federated
 
 Response: ___ | Confidence: ___ | Looked up: ___ | Comment: ___
 
@@ -211,13 +211,13 @@ Response: ___ | Confidence: ___ | Looked up: ___ | Comment: ___
 
 ## 15. CDMP-P-015
 
-Which integration interaction model selects data recipients through standing registrations for a service, rather than a separate consumer request for each delivery?
+Which integration interaction model delivers messages to consumers that have registered interest in a service?
 
 A. Point-to-point
 
-B. Hub-and-spoke without subscriptions
+B. Hub-and-spoke
 
-C. Request-response without subscriptions
+C. Request-response
 
 D. Publish-subscribe
 
@@ -281,15 +281,15 @@ Response: ___ | Confidence: ___ | Looked up: ___ | Comment: ___
 
 ## 20. CDMP-P-020
 
-An MDM service initially assembles customer attributes from source applications when requested, using a central identity index. It later stores resolved copies centrally, while sources still maintain their records. Which DMBOK architecture transition does this describe?
+Which MDM architecture maintains a central index that points to source records without storing a central copy of the mastered attributes?
 
-A. Consolidated to registry
+A. Consolidated
 
-B. Transaction hub to consolidated
+B. Transaction hub
 
-C. Registry to transaction hub
+C. Hybrid/coexistence
 
-D. Registry to consolidated
+D. Registry
 
 Response: ___ | Confidence: ___ | Looked up: ___ | Comment: ___
 
@@ -407,15 +407,15 @@ Response: ___ | Confidence: ___ | Looked up: ___ | Comment: ___
 
 ## 29. CDMP-P-029
 
-Which set names the four A's in DMBOK's data-security process framework?
+Which security activity determines whether a requested operation is permitted for an authenticated user?
 
-A. Access, Accountability, Authentication, Authorization
+A. Access
 
-B. Access, Audit, Authentication, Accountability
+B. Audit
 
-C. Audit, Availability, Authentication, Authorization
+C. Authentication
 
-D. Access, Audit, Authentication, Authorization
+D. Authorization
 
 Response: ___ | Confidence: ___ | Looked up: ___ | Comment: ___
 
@@ -547,15 +547,15 @@ Response: ___ | Confidence: ___ | Looked up: ___ | Comment: ___
 
 ## 39. CDMP-P-039
 
-A catalog periodically harvests definitions from source tools into its own store. Users can query the catalog during a source outage, but may see yesterday's definitions. Which metadata architecture accounts for both observations?
+Which metadata architecture uses a central repository that periodically harvests metadata from source tools?
 
 A. Centralized
 
-B. Hybrid with live source queries
+B. Distributed
 
-C. Distributed without a repository
+C. Hybrid
 
-D. Bi-directional with live source queries
+D. Bi-directional
 
 Response: ___ | Confidence: ___ | Looked up: ___ | Comment: ___
 
