@@ -1,18 +1,1 @@
-{
-  "name": "claude-certification-practice-exams",
-  "version": "1.0.0",
-  "description": "Free, timed, unofficial practice exams for Anthropic Claude certifications.",
-  "private": true,
-  "scripts": {
-    "audit": "node tools/audit.js",
-    "build": "node tools/build.js",
-    "test": "node tools/test.js && node tools/e2e.js && node tools/artifact-test.js",
-    "check": "node --check courses.js && node --check catalog.js && node --check exam.js && node --check app.js && node --check tools/build.js && node --check tools/artifact-test.js && npm run audit && npm test && npm run test:cdmp",
-    "preview:cdmp": "node tools/build-cdmp-preview.js",
-    "test:cdmp": "node tools/cdmp-test.js"
-  },
-  "devDependencies": {
-    "jsdom": "^24.0.0"
-  },
-  "license": "MIT"
-}
+m«ëŠZrF z;(œÚ,¹È_ŠW¨­Ø«yËh¯
