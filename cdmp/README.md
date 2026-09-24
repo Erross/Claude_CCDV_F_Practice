@@ -6,7 +6,7 @@ The pilot contains 40 original questions across the 14 published Fundamentals to
 
 ## Current behavior
 
-- 40 pilot questions, one for each calibrated bank item
+- 40 original draft items; difficulty has not been calibrated
 - 36-minute standard and 44-minute ESL pilot settings, scaled from the published 90/110-minute full-exam durations
 - 60%, 70% and 80% selectable practice targets
 - question and option shuffling
@@ -46,3 +46,5 @@ npm run check
 ```
 
 The draft tests cover exact topic quotas, 5,000 pilot shuffles, 5,000 synthetic full forms, percentage threshold boundaries, 90/110-minute-derived settings, recovery, history, scoring, explanation/provenance fields and the production artifact exclusion gate. Independent semantic review, browser visual review and full-bank expansion remain release requirements.
+
+The [editorial review record](REVIEW.md) documents a second pass across every item, including source corrections, improved distractors and remaining limitations. It is a same-agent review and does not satisfy the independent blind-review gate.

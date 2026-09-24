@@ -33,7 +33,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "retained-draft"
+    }
   },
   {
     "id": "CDMP-P-002",
@@ -68,7 +73,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "retained-draft"
+    }
   },
   {
     "id": "CDMP-P-003",
@@ -76,26 +86,26 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "t": "s",
     "q": "Two acquired businesses maintain incompatible customer structures. Before sequencing architecture changes, which comparison is most useful?",
     "o": [
-      "Current server utilization against vendor benchmark scores",
-      "Current report counts against the number of developers",
-      "Current data capabilities against the required target state",
-      "Current database prices against the annual training budget"
+      "The acquired systems against the preferred platform vendor architecture",
+      "The two source schemas against each other without defining a target",
+      "Current data capabilities against the business-driven target state",
+      "The existing interfaces against last year's incident frequency ranking"
     ],
     "c": [
       2
     ],
     "e": "An architecture roadmap should address gaps between the documented current environment and business-driven target capabilities.",
     "rationales": [
-      "Infrastructure benchmarks do not reveal differences in customer structures.",
-      "These counts do not establish the required future data capabilities.",
-      "Comparing current and target states identifies gaps that the roadmap must close.",
-      "Cost matters later but does not describe the architectural gaps."
+      "Vendor capabilities inform implementation choices but do not establish the required business target.",
+      "A source comparison finds differences but cannot identify the gaps to an agreed future state.",
+      "The current-to-target gap provides a basis for sequencing architecture changes.",
+      "Incident trends inform priorities but do not establish the capabilities needed after integration."
     ],
     "sources": [
       {
         "title": "DAMA-DMBOK2, second edition (2017)",
         "url": "https://technicspub.com/wp-content/uploads/2023/07/DAMA-DMBOK2.pdf",
-        "locator": "Chapter 4; section 2.1 Establish Data Architecture Practice"
+        "locator": "Chapter 4; sections 2.1.1 Evaluate Existing Data Architecture Specifications and 2.1.2 Develop a Roadmap"
       }
     ],
     "subtopic": "architecture-gap-analysis",
@@ -103,7 +113,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "revised-draft"
+    }
   },
   {
     "id": "CDMP-P-004",
@@ -130,7 +145,7 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
       {
         "title": "DAMA-DMBOK2, second edition (2017)",
         "url": "https://technicspub.com/wp-content/uploads/2023/07/DAMA-DMBOK2.pdf",
-        "locator": "Chapter 4; Essential Concepts"
+        "locator": "Chapter 13; section 1.3.2 Critical Data (business-impact basis); revised Chapter 4 adds a CDE definition"
       },
       {
         "title": "DAMA official revised-edition changes",
@@ -143,7 +158,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017 plus official 2024 change notes"
+    "editionBasis": "2017 plus official 2024 change notes",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "revised-draft"
+    }
   },
   {
     "id": "CDMP-P-005",
@@ -168,11 +188,6 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     ],
     "sources": [
       {
-        "title": "DAMA-DMBOK2, second edition (2017)",
-        "url": "https://technicspub.com/wp-content/uploads/2023/07/DAMA-DMBOK2.pdf",
-        "locator": "Chapter 4; Essential Concepts"
-      },
-      {
         "title": "DAMA official revised-edition changes",
         "url": "https://www.damadmbok.org/dmbok2-revisions",
         "locator": "2024 revision: Chapter 4"
@@ -183,7 +198,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017 plus official 2024 change notes"
+    "editionBasis": "Public 2024 Chapter 4 change summary; full revised text not checked",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "revised-draft"
+    }
   },
   {
     "id": "CDMP-P-006",
@@ -191,20 +211,20 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "t": "s",
     "q": "A team keeps emailing copies of a procedure and cannot tell which revision was approved. Which capability most directly addresses the problem?",
     "o": [
-      "A search engine that ranks the most frequently opened file",
-      "Version control linked to approval status and revision history",
-      "A larger mailbox quota for each procedure author",
-      "An additional backup copy of every email attachment"
+      "An activity log showing which users downloaded each procedure copy",
+      "Version control linking each revision to its approval status",
+      "A retention schedule specifying how long procedure copies are kept",
+      "A nightly backup preserving the procedure files in each mailbox"
     ],
     "c": [
       1
     ],
     "e": "Controlled versions and approval metadata make the authoritative document identifiable.",
     "rationales": [
-      "Popularity is not evidence that a version is approved.",
-      "This distinguishes approved revisions and records controlled changes.",
-      "More storage does not establish an authoritative revision.",
-      "Backup preserves copies but does not determine approval status."
+      "Download events show access, not which revision received approval.",
+      "A controlled revision history connects document versions to approval decisions.",
+      "Retention governs how long records are kept, not which version is authoritative.",
+      "Backups support recovery but do not distinguish approved and unapproved revisions."
     ],
     "sources": [
       {
@@ -218,7 +238,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "revised-draft"
+    }
   },
   {
     "id": "CDMP-P-007",
@@ -226,20 +251,20 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "t": "s",
     "q": "An organization has an approved retention schedule and a documented process for suspending disposal when required. How should disposal of managed records be controlled?",
     "o": [
-      "Let each file creator set disposal timing without recording a reason",
-      "Keep records until a newer file with a similar title is available",
-      "Check retention eligibility and applicable holds before approved disposal",
-      "Delete records when their storage tier reaches its capacity threshold"
+      "Dispose when the retention period expires, then check for holds in the audit",
+      "Suspend disposal of every record until each creator personally authorizes it",
+      "Check retention eligibility and active holds before authorized disposal",
+      "Replace disposal review with a backup retained on a separate storage tier"
     ],
     "c": [
       2
     ],
     "e": "Retention and disposition controls need to distinguish eligible records from records whose disposal is suspended.",
     "rationales": [
-      "Uncontrolled personal choices undermine consistent records management.",
-      "A similar title does not establish that an existing record may be disposed of.",
-      "Disposition must follow the schedule and any active restrictions.",
-      "Storage pressure is not a substitute for a retention decision."
+      "A hold must be checked before disposal; a later audit cannot undo destruction.",
+      "Creator approval is not a substitute for the approved retention and suspension process.",
+      "Eligibility and holds must both be resolved before an authorized disposition.",
+      "A backup does not replace the rules governing retention and disposition."
     ],
     "sources": [
       {
@@ -253,7 +278,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "revised-draft"
+    }
   },
   {
     "id": "CDMP-P-008",
@@ -261,9 +291,9 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "t": "s",
     "q": "Employees file the same kind of document under Sales, Commercial and Revenue, making retrieval inconsistent. Which intervention most directly improves classification?",
     "o": [
-      "A separate storage volume for every department's preferred terms",
-      "A requirement to place creation dates at the start of filenames",
-      "A larger full-text index with the existing classifications unchanged",
+      "A shared template for document titles and revision identifiers",
+      "A role-based access scheme aligned to the three departments",
+      "A full-text index that retains each department's existing labels",
       "A controlled taxonomy with agreed categories and indexing rules"
     ],
     "c": [
@@ -271,10 +301,10 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     ],
     "e": "Taxonomies organize content using controlled categories that support consistent classification and retrieval.",
     "rationales": [
-      "Separating storage preserves the terminology conflict.",
-      "Dates support identification but do not standardize subject categories.",
-      "A larger index does not resolve inconsistent classification rules.",
-      "A controlled classification structure makes categorization consistent."
+      "Consistent titles help recognition but leave the conflicting categories unresolved.",
+      "Access restrictions address permissions rather than the meaning of categories.",
+      "Full-text retrieval may help find files but leaves classification inconsistent.",
+      "Controlled categories and indexing rules address inconsistent classification directly."
     ],
     "sources": [
       {
@@ -288,7 +318,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "revised-draft"
+    }
   },
   {
     "id": "CDMP-P-009",
@@ -323,7 +358,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "retained-draft"
+    }
   },
   {
     "id": "CDMP-P-010",
@@ -331,20 +371,20 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "t": "s",
     "q": "A customer-data domain needs someone accountable for decisions about its permitted business uses and definitions. Which role is the best fit?",
     "o": [
-      "The analyst who most recently exported the data",
-      "The business data owner for that domain",
-      "The administrator who installs database updates",
-      "The developer who maintains the loading script"
+      "The data custodian responsible for the domain's storage controls",
+      "The business data owner accountable for the domain's decisions",
+      "The technical steward maintaining the domain's system mappings",
+      "The integration lead responsible for distributing domain records"
     ],
     "c": [
       1
     ],
     "e": "Assign domain decision accountability explicitly to a business data owner.",
     "rationales": [
-      "Recent access does not establish accountability.",
-      "The revised definition makes the data owner accountable for domain decisions.",
-      "Technical maintenance does not confer business decision authority.",
-      "Implementation responsibility does not by itself confer ownership."
+      "Custodians implement technical controls; that duty does not itself assign business decision accountability.",
+      "The owner is accountable for business decisions concerning data in the domain.",
+      "Technical stewardship supports implementation and interpretation but does not by itself confer ownership.",
+      "Distribution responsibility does not establish authority over permitted business uses."
     ],
     "sources": [
       {
@@ -363,7 +403,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017 plus official 2024 change notes"
+    "editionBasis": "2017 plus official 2024 change notes",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "revised-draft"
+    }
   },
   {
     "id": "CDMP-P-011",
@@ -398,7 +443,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "retained-draft"
+    }
   },
   {
     "id": "CDMP-P-012",
@@ -406,9 +456,9 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "t": "s",
     "q": "Two domain teams cannot agree which definition should govern a shared enterprise measure. The established governance process assigns cross-domain disputes to a council. What should the stewards do next?",
     "o": [
-      "Allow whichever team publishes first to establish the enterprise definition",
-      "Maintain both definitions under the same name without recording the conflict",
-      "Ask the database vendor to select the preferred business interpretation",
+      "Adopt the definition used by the team with the largest reporting workload",
+      "Publish the arithmetic midpoint of the two measures as a common definition",
+      "Ask the integration team to choose the definition easiest to implement",
       "Escalate the documented issue and its business impacts to the council"
     ],
     "c": [
@@ -416,16 +466,16 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     ],
     "e": "Escalate unresolved issues through the agreed authority structure with enough context for an informed decision.",
     "rationales": [
-      "Publication order does not establish governance authority.",
-      "Unrecorded ambiguity prevents consistent interpretation.",
-      "A technology vendor cannot determine the organization's business decision rights.",
-      "The council is the defined decision authority for this unresolved dispute."
+      "Reporting volume does not supersede the assigned decision authority.",
+      "Combining values does not resolve the incompatible business definitions.",
+      "Implementation convenience does not assign authority to resolve the dispute.",
+      "The named council is the agreed escalation authority; documented impacts support its decision."
     ],
     "sources": [
       {
         "title": "DAMA-DMBOK2, second edition (2017)",
         "url": "https://technicspub.com/wp-content/uploads/2023/07/DAMA-DMBOK2.pdf",
-        "locator": "Chapter 3; section 2.6 Develop Issue Management"
+        "locator": "Chapter 3; section 2.10 Engage in Issue Management"
       }
     ],
     "subtopic": "issue-escalation",
@@ -433,7 +483,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "revised-draft"
+    }
   },
   {
     "id": "CDMP-P-013",
@@ -441,20 +496,20 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "t": "s",
     "q": "Finance and Sales use different meanings of active customer. What makes a glossary entry useful for resolving the ambiguity?",
     "o": [
-      "An agreed definition with scope, ownership and approval recorded",
-      "A list of every database column named customer across the source systems",
-      "A count of how often each team has used the disputed phrase",
-      "An automatically chosen definition based on the longest description"
+      "An approved definition recording its scope and accountable owner",
+      "A shared term name mapped to both teams' existing definitions",
+      "A lineage diagram linking each team's measure to its source tables",
+      "A usage report ranking the two meanings by their query frequency"
     ],
     "c": [
       0
     ],
     "e": "A business glossary should capture governed meaning rather than simply collect labels.",
     "rationales": [
-      "Meaning, scope and accountability make the definition governable.",
-      "Technical names can be linked later but do not settle business meaning.",
-      "Usage frequency does not establish a shared definition.",
-      "Length is not a measure of correctness or organizational agreement."
+      "An approved meaning, scope and owner make the interpretation governable.",
+      "Mapping competing meanings documents the conflict but does not resolve it.",
+      "Lineage explains derivation but does not itself decide the agreed meaning.",
+      "Popularity does not establish the appropriate business definition."
     ],
     "sources": [
       {
@@ -468,7 +523,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "revised-draft"
+    }
   },
   {
     "id": "CDMP-P-014",
@@ -503,7 +563,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "retained-draft"
+    }
   },
   {
     "id": "CDMP-P-015",
@@ -538,7 +603,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "retained-draft"
+    }
   },
   {
     "id": "CDMP-P-016",
@@ -546,20 +616,20 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "t": "s",
     "q": "Two systems both store status code A. In one it means active; in the other it means archived. What must the integration design establish before combining these fields?",
     "o": [
-      "A rule treating equal source strings as equal business concepts",
-      "A shared text encoding for the two source columns alone",
-      "A larger character limit for the combined status column",
-      "A mapping based on the business meaning of each source value"
+      "A rule equating source values whenever their stored codes match",
+      "A shared character encoding and a common target field length",
+      "A lookup that converts each source code to the same display label",
+      "A mapping that preserves the business meaning of each source code"
     ],
     "c": [
       3
     ],
     "e": "Interoperability requires compatible meaning as well as technically compatible formats.",
     "rationales": [
-      "String equality is not semantic equivalence.",
-      "Encoding addresses representation, not the business definition.",
-      "Column width does not resolve contradictory meanings.",
-      "Semantic mapping distinguishes identical codes with different meanings."
+      "Equal strings can represent different concepts, as the stem demonstrates.",
+      "Compatible representations do not resolve incompatible meanings.",
+      "A shared display label would conceal the active-versus-archived distinction.",
+      "Semantic mapping must distinguish the two meanings even though both sources use A."
     ],
     "sources": [
       {
@@ -573,7 +643,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "revised-draft"
+    }
   },
   {
     "id": "CDMP-P-017",
@@ -608,7 +683,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "retained-draft"
+    }
   },
   {
     "id": "CDMP-P-018",
@@ -616,20 +696,20 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "t": "s",
     "q": "Two customer records share a name but have different birth dates and addresses. What is the most defensible matching approach?",
     "o": [
-      "Select the more recently loaded record and discard the other identity",
-      "Evaluate additional identifiers and route uncertain matches for review",
-      "Merge the records because matching names establish identity",
-      "Keep every record separate even when stronger identifiers agree"
+      "Merge on normalized name and let the latest record supply the attributes",
+      "Evaluate additional identifiers and review uncertain candidate matches",
+      "Reject the pair permanently because a demographic field disagrees",
+      "Raise the name-match score when both sources classify the party as a customer"
     ],
     "c": [
       1
     ],
     "e": "Matching must balance false matches and missed matches using suitable identifiers and review rules.",
     "rationales": [
-      "Load time does not establish that two identities are equivalent.",
-      "Evidence-based matching manages the risk of false merges.",
-      "Names alone are insufficient evidence of identity.",
-      "Never linking records would also defeat justified reconciliation."
+      "A shared name alone is insufficient evidence; survivorship cannot repair a false identity match.",
+      "Additional evidence and review balance false matches against missed matches.",
+      "Conflicts may reflect data errors; permanently rejecting the pair can miss a real match.",
+      "A shared entity category is not enough to distinguish two people with the same name."
     ],
     "sources": [
       {
@@ -643,7 +723,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "revised-draft"
+    }
   },
   {
     "id": "CDMP-P-019",
@@ -678,13 +763,18 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "retained-draft"
+    }
   },
   {
     "id": "CDMP-P-020",
     "d": "MR",
     "t": "s",
-    "q": "An organization wants a master index that links customer records while source applications continue managing their own data. Which MDM architecture is the closest fit?",
+    "q": "An organization wants a master index that links customer identities across source systems. Customer attributes must remain in the sources and be retrieved from them, rather than copied into a central master repository. Which MDM architecture is the closest fit?",
     "o": [
       "Transaction hub",
       "Consolidated repository",
@@ -713,34 +803,39 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "revised-draft"
+    }
   },
   {
     "id": "CDMP-P-021",
     "d": "MD",
     "t": "s",
-    "q": "Business leaders want to agree on the major entities and relationships before choosing database structures. Which model level is the most appropriate starting point?",
+    "q": "Business leaders need a high-level view of the main business entities and their relationships. Detailed attributes, keys and database choices will be addressed later. Which model best meets the present need?",
     "o": [
-      "Conceptual",
-      "Physical",
-      "Storage allocation",
-      "Execution plan"
+      "Conceptual model of the main entities and relationships",
+      "Logical model with detailed attributes and candidate keys",
+      "Physical model with database columns and access structures",
+      "Dimensional model with analytical facts and dimensions"
     ],
     "c": [
       0
     ],
     "e": "The conceptual level supports agreement on business meaning before detailed implementation design.",
     "rationales": [
-      "Conceptual models express the principal business concepts and relationships.",
-      "Physical models include implementation details that are premature here.",
-      "Storage allocation concerns implementation capacity.",
-      "An execution plan describes how a query runs."
+      "A conceptual model establishes the high-level business entities and relationships.",
+      "Logical modeling adds detail beyond the initial high-level agreement requested.",
+      "Physical modeling depends on implementation decisions that have not yet been made.",
+      "Dimensional modeling organizes analytical data; the request concerns the enterprise business view."
     ],
     "sources": [
       {
         "title": "DAMA-DMBOK2, second edition (2017)",
         "url": "https://technicspub.com/wp-content/uploads/2023/07/DAMA-DMBOK2.pdf",
-        "locator": "Chapter 5; Data Model Levels"
+        "locator": "Chapter 5; section 1.3.5 Data Model Levels of Detail"
       }
     ],
     "subtopic": "conceptual-model",
@@ -748,28 +843,33 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "revised-draft"
+    }
   },
   {
     "id": "CDMP-P-022",
     "d": "MD",
     "t": "s",
-    "q": "Each order line belongs to exactly one order, and each order may have several order lines. How should the relationship be represented?",
+    "q": "Each order line belongs to exactly one order. An order must contain at least one order line and may contain several. Which pair of cardinalities expresses both rules?",
     "o": [
-      "Many orders to many order lines",
-      "One order to many order lines",
-      "Many orders to one order line",
-      "One order to exactly one order line"
+      "An order has zero or more lines; a line has exactly one order",
+      "An order has one or more lines; a line has exactly one order",
+      "An order has exactly one line; a line has one or more orders",
+      "An order has one or more lines; a line has zero or one order"
     ],
     "c": [
       1
     ],
     "e": "Cardinality must express the business rule in both directions.",
     "rationales": [
-      "That would allow a line to belong to multiple orders.",
-      "This captures multiple lines per order and a single parent order per line.",
-      "That reverses the stated relationship.",
-      "That would prevent an order from containing multiple lines."
+      "This incorrectly permits an order with no lines.",
+      "This captures mandatory participation and the one-to-many maximum cardinality.",
+      "This reverses the relationship and incorrectly permits a line to belong to several orders.",
+      "This incorrectly permits a line without an order."
     ],
     "sources": [
       {
@@ -783,28 +883,33 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "revised-draft"
+    }
   },
   {
     "id": "CDMP-P-023",
     "d": "MD",
     "t": "s",
-    "q": "A relational table repeats a supplier's address on every purchased item row. Updating only some rows leaves conflicting addresses. Which design change most directly addresses this anomaly?",
+    "q": "A purchasing table repeats a supplier's current contact address on every item row. Historical shipment addresses are stored separately. Updating some rows leaves conflicting current addresses. Which design change most directly removes the redundancy causing this anomaly?",
     "o": [
-      "Sort the purchased items by supplier address before each update",
-      "Increase the transaction timeout for all item updates",
-      "Store supplier attributes once and reference them from item rows",
-      "Add an index to every repeated supplier-address column"
+      "Add a composite key containing the item identifier and supplier address",
+      "Use a trigger to copy each new supplier address to the other item rows",
+      "Store current supplier attributes once and reference them from item rows",
+      "Store the address as a structured object inside each purchased-item row"
     ],
     "c": [
       2
     ],
     "e": "Normalization organizes attributes around their dependencies so one fact need not be maintained in many rows.",
     "rationales": [
-      "Sort order does not enforce consistent supplier data.",
-      "A timeout change does not repair the model's dependency problem.",
-      "Separating supplier facts reduces redundant copies and update anomalies.",
-      "Indexes improve access paths but do not remove redundant facts."
+      "A larger key does not remove the repeated supplier fact.",
+      "A trigger may synchronize the copies but preserves the redundancy the question asks to remove.",
+      "Separating the supplier fact addresses the dependency and eliminates repeated maintenance.",
+      "Changing the representation inside each row still repeats the address."
     ],
     "sources": [
       {
@@ -818,7 +923,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "revised-draft"
+    }
   },
   {
     "id": "CDMP-P-024",
@@ -853,7 +963,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "retained-draft"
+    }
   },
   {
     "id": "CDMP-P-025",
@@ -893,7 +1008,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017 plus official 2024 change notes"
+    "editionBasis": "2017 plus official 2024 change notes",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "retained-draft"
+    }
   },
   {
     "id": "CDMP-P-026",
@@ -928,7 +1048,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "retained-draft"
+    }
   },
   {
     "id": "CDMP-P-027",
@@ -936,20 +1061,20 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "t": "s",
     "q": "A weekly cleanup corrects invalid product codes, but the same errors recur through an entry form. Which action most directly prevents recurrence at that source?",
     "o": [
-      "Hide invalid rows from the management dashboard",
-      "Increase the retention period of the cleanup job logs",
-      "Validate selections against the approved code list in the entry process",
-      "Run the existing cleanup twice each week instead of once"
+      "Correct invalid codes in the warehouse after the next scheduled load",
+      "Route invalid entries to a daily correction queue for the data steward",
+      "Validate selections against the approved code list during data entry",
+      "Increase the cleanup frequency and send defect counts to the process owner"
     ],
     "c": [
       2
     ],
     "e": "Corrective work repairs existing defects; preventive controls address their causes.",
     "rationales": [
-      "Filtering hides symptoms without improving the source data.",
-      "Longer logs may aid investigation but do not prevent invalid entry.",
-      "A source control stops that class of invalid value from entering.",
-      "More frequent correction still permits repeated introduction of the error."
+      "Downstream correction repairs data after the entry form has admitted the defect.",
+      "A correction queue handles existing defects rather than preventing entry.",
+      "Validation at the originating process prevents that route of recurrence.",
+      "More frequent detection and correction leave the entry control unchanged."
     ],
     "sources": [
       {
@@ -963,7 +1088,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "revised-draft"
+    }
   },
   {
     "id": "CDMP-P-028",
@@ -1003,7 +1133,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017 plus official 2024 change notes"
+    "editionBasis": "2017 plus official 2024 change notes",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "retained-draft"
+    }
   },
   {
     "id": "CDMP-P-029",
@@ -1013,18 +1148,18 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "o": [
       "Authorization",
       "Authentication",
-      "Compression",
-      "Replication"
+      "Auditing",
+      "Encryption"
     ],
     "c": [
       0
     ],
     "e": "Knowing who a user is and deciding what the user may do are distinct controls.",
     "rationales": [
-      "Authorization determines permitted actions on resources.",
-      "Authentication establishes identity rather than each data permission.",
-      "Compression changes representation size, not access rights.",
-      "Replication copies data and is not the permission decision."
+      "Authorization decides whether an identified user has permission for an action or resource.",
+      "Authentication establishes identity; successful sign-in does not grant every permission.",
+      "Auditing records or examines activity rather than deciding the access grant.",
+      "Encryption protects data representation; it does not by itself assign this user a read privilege."
     ],
     "sources": [
       {
@@ -1038,7 +1173,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "revised-draft"
+    }
   },
   {
     "id": "CDMP-P-030",
@@ -1073,7 +1213,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "retained-draft"
+    }
   },
   {
     "id": "CDMP-P-031",
@@ -1108,7 +1253,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "retained-draft"
+    }
   },
   {
     "id": "CDMP-P-032",
@@ -1116,26 +1266,26 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "t": "s",
     "q": "A backup job reports success every night. What additional evidence best demonstrates that the recovery process can meet the organization's needs?",
     "o": [
-      "A screenshot showing that the backup scheduler is enabled",
-      "A larger number of files in the backup destination directory",
-      "A report showing that the database vendor supports backups",
-      "A tested restore that verifies recovered data and measures recovery time"
+      "Verification that the backup files pass checksum and readability checks",
+      "Confirmation that the backup repository meets its capacity forecast",
+      "Review of the documented recovery runbook with the operations team",
+      "A timed restore verifying recovered data against recovery objectives"
     ],
     "c": [
       3
     ],
     "e": "Backup creation and successful recovery are different outcomes; recovery needs testing.",
     "rationales": [
-      "Scheduling shows configuration, not recoverability.",
-      "File counts do not establish integrity or restore performance.",
-      "A supported feature does not prove that the organization's implementation works.",
-      "A restore exercise tests usability and operational recovery capability."
+      "Readable backup files are useful evidence but do not demonstrate successful end-to-end recovery.",
+      "Adequate capacity supports retention but does not prove recovery capability.",
+      "A runbook review can find gaps but cannot demonstrate actual restoration.",
+      "A restore exercise tests the recovered data and elapsed time against the required objectives."
     ],
     "sources": [
       {
         "title": "DAMA-DMBOK2, second edition (2017)",
         "url": "https://technicspub.com/wp-content/uploads/2023/07/DAMA-DMBOK2.pdf",
-        "locator": "Chapter 6; Manage Databases, Backup and Recovery"
+        "locator": "Chapter 6; sections 2.2.2.1 Make Backups and 2.2.2.2 Recover Data"
       }
     ],
     "subtopic": "backup-restore-verification",
@@ -1143,7 +1293,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "revised-draft"
+    }
   },
   {
     "id": "CDMP-P-033",
@@ -1152,19 +1307,19 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "q": "A sales fact table is intended to contain one row per order line. What does this statement define?",
     "o": [
       "The grain of the fact table",
-      "The refresh interval of the warehouse",
-      "The data retention period",
-      "The order in which indexes are rebuilt"
+      "The aggregation method for its measures",
+      "The natural key of the customer dimension",
+      "The refresh frequency of the sales partition"
     ],
     "c": [
       0
     ],
     "e": "Declaring grain prevents incompatible levels of detail from being mixed in one fact structure.",
     "rationales": [
-      "Grain defines what a single fact row represents.",
-      "Refresh interval determines when data is updated.",
-      "Retention determines how long data is kept.",
-      "Index maintenance is an implementation operation."
+      "Grain states what a row represents, here one order line.",
+      "Aggregation specifies how measures combine across rows rather than what one row represents.",
+      "Customer identification does not define the order-line level of the facts.",
+      "Refresh frequency describes timing rather than row-level detail."
     ],
     "sources": [
       {
@@ -1178,7 +1333,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "revised-draft"
+    }
   },
   {
     "id": "CDMP-P-034",
@@ -1186,20 +1346,20 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "t": "s",
     "q": "Sales and Returns marts need comparable reporting by product category. Which design best supports consistent cross-mart analysis?",
     "o": [
-      "A rule requiring every fact table to have the same number of columns",
-      "Shared product dimensions with consistent category definitions and values",
-      "Separate product categories designed independently by each reporting team",
-      "Identical dashboard colors for otherwise different product classifications"
+      "Matching surrogate-key data types in independently defined product dimensions",
+      "Product dimensions with conformed category definitions and values",
+      "Matching refresh schedules for marts with different category hierarchies",
+      "Shared display labels while each mart retains its own category boundaries"
     ],
     "c": [
       1
     ],
     "e": "Conformed dimensions support integration through consistent attributes and values.",
     "rationales": [
-      "Column counts do not determine whether dimensions mean the same thing.",
-      "Conformed dimensions provide common meaning across dimensional models.",
-      "Independent definitions can make comparisons misleading.",
-      "Visual consistency does not establish semantic consistency."
+      "Compatible key types do not make the underlying categories equivalent.",
+      "Conformed meanings and values support comparable analysis across the marts.",
+      "Synchronized refreshes do not resolve incompatible category definitions.",
+      "Common labels can hide differing classifications and yield misleading comparisons."
     ],
     "sources": [
       {
@@ -1213,28 +1373,33 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "revised-draft"
+    }
   },
   {
     "id": "CDMP-P-035",
     "d": "BI",
     "t": "s",
-    "q": "Analysts need sales attributed to the customer region that applied when each sale occurred. Which dimension-change approach most directly preserves successive historical versions?",
+    "q": "Customer regions can change repeatedly. Analysts need every sale attributed to the region that applied when it occurred, retaining the complete succession of region versions. Which dimension design most directly supports this?",
     "o": [
-      "Keep the current region and remove the earlier region values",
-      "Recalculate every past sale using the customer's latest region",
-      "Create a new dimension row for each tracked change, with its effective period",
-      "Overwrite the old region value in the existing dimension row"
+      "Overwrite the dimension region after recording its change in the load log",
+      "Add one previous-region column beside the current region on the same row",
+      "Create a dimension row per tracked change and link each sale to its applicable version",
+      "Keep one current dimension row and recalculate prior sales with its latest region"
     ],
     "c": [
       2
     ],
-    "e": "A Type 2 slowly changing dimension preserves history through new rows rather than overwriting old values.",
+    "e": "A Type 2 slowly changing dimension retains a row for each tracked version. Effective periods and correct fact-to-version links preserve the region applicable to each sale.",
     "rationales": [
-      "Keeping only the latest value cannot support the requested history.",
-      "Restating all sales to the latest region answers a different analytical question.",
-      "Type 2 records successive versions so facts can reference the appropriate historical state.",
-      "Overwriting loses the prior state unless another history mechanism exists."
+      "A load log is not the modeled succession of dimension versions requested.",
+      "A single previous-value column preserves limited history rather than all successive versions.",
+      "Type 2 keeps successive versions; facts must reference the version applicable to the sale.",
+      "Applying the current region restates history instead of preserving historical attribution."
     ],
     "sources": [
       {
@@ -1248,7 +1413,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "revised-draft"
+    }
   },
   {
     "id": "CDMP-P-036",
@@ -1256,20 +1426,20 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "t": "s",
     "q": "Which requirement most directly motivates an integrated data warehouse?",
     "o": [
-      "Immediate validation of every keystroke in a transaction-entry screen",
-      "Exclusive management of identity credentials for all applications",
-      "Replacement of every operational system with one reporting dashboard",
-      "Consistent historical analysis across several operational business processes"
+      "Low-latency updates to the current stock balance in a transaction system",
+      "Message routing between applications that use different payload formats",
+      "Central ownership of current customer identities across source applications",
+      "Consistent historical analysis across operational business processes"
     ],
     "c": [
       3
     ],
     "e": "DW/BI turns data from operational and other sources into information suitable for analytical decisions.",
     "rationales": [
-      "Transaction-screen validation is primarily an operational application responsibility.",
-      "Identity management is a security capability.",
-      "A warehouse supports analysis and does not inherently replace operational systems.",
-      "An integrated warehouse supports cross-process analytical use and history."
+      "This primarily motivates transactional processing rather than a historical analytical store.",
+      "This primarily motivates integration and interoperability capabilities.",
+      "This primarily motivates master-data management and identity reconciliation.",
+      "Integration and history across business processes are central warehouse capabilities."
     ],
     "sources": [
       {
@@ -1283,7 +1453,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "revised-draft"
+    }
   },
   {
     "id": "CDMP-P-037",
@@ -1291,20 +1466,20 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "t": "s",
     "q": "A report consumer asks what net revenue means and which exclusions its calculation applies. Which metadata is most directly needed?",
     "o": [
-      "The business definition and calculation rule",
-      "The physical disk location of the report file",
-      "The last database patch installation identifier",
-      "The operating-system process number of the refresh job"
+      "The approved metric definition, including calculation and exclusions",
+      "The refresh timestamps and row counts from the last successful load",
+      "The physical table and column names used by the revenue report",
+      "The access classification and authorized audience for the report"
     ],
     "c": [
       0
     ],
     "e": "Business metadata enables a consumer to interpret the information correctly.",
     "rationales": [
-      "Business metadata explains meaning and derivation.",
-      "Disk location does not explain the metric.",
-      "Patch identifiers describe technical operations.",
-      "A process identifier does not define revenue exclusions."
+      "The metric definition provides the business meaning and calculation scope.",
+      "Execution evidence describes freshness and processing, not the meaning of net revenue.",
+      "Physical names may locate data but do not by themselves document the exclusions.",
+      "Access metadata identifies permitted use, not the metric calculation."
     ],
     "sources": [
       {
@@ -1318,7 +1493,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "revised-draft"
+    }
   },
   {
     "id": "CDMP-P-038",
@@ -1353,7 +1533,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "retained-draft"
+    }
   },
   {
     "id": "CDMP-P-039",
@@ -1361,20 +1546,20 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "t": "s",
     "q": "An auditor asks which source records and transformations produced a reported total. Which investigation is most directly required?",
     "o": [
-      "List the retention policies for unrelated source systems",
-      "Compare dashboard response times across departments",
-      "Trace lineage backward from the report to its sources",
-      "Count the users who have permission to open the report"
+      "Review the glossary entry defining what the reported total means",
+      "Reconcile the report total to a separately produced control total",
+      "Trace the report's lineage to contributing sources and transformations",
+      "Inspect the successful-run record for the report-refresh process"
     ],
     "c": [
       2
     ],
     "e": "Lineage links a result to the sources and transformations contributing to it.",
     "rationales": [
-      "Unrelated retention policies do not describe this data path.",
-      "Response time does not establish provenance.",
-      "Backward lineage explains provenance and transformation of the reported value.",
-      "Access lists do not establish how a total was derived."
+      "The definition explains intended meaning but does not trace the implemented derivation.",
+      "Reconciliation can detect disagreement without identifying the records and transformations involved.",
+      "Backward lineage supports tracing derivation; available detail depends on lineage coverage.",
+      "A successful refresh status does not document the complete derivation path."
     ],
     "sources": [
       {
@@ -1388,7 +1573,12 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "revised-draft"
+    }
   },
   {
     "id": "CDMP-P-040",
@@ -1396,20 +1586,20 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "t": "s",
     "q": "A source team plans to change the meaning of a field used by several downstream pipelines. What should be checked before implementing the change?",
     "o": [
-      "Only whether the source column name will stay the same",
-      "Only whether the source database has enough free storage",
-      "The number of characters in the proposed business definition",
-      "The downstream dependencies and consumers identified through lineage"
+      "Verify that the existing field passes its current type and format rules",
+      "Compare the proposed definition with the source team's glossary entry",
+      "Confirm that the scheduled source load still completes successfully",
+      "Identify dependent transformations and consumers and assess their use"
     ],
     "c": [
       3
     ],
     "e": "Lineage supports change management by identifying where a source change can propagate.",
     "rationales": [
-      "Unchanged names can conceal changed semantics.",
-      "Capacity does not reveal semantic impacts on consumers.",
-      "Definition length is unrelated to the dependency impact.",
-      "Forward impact analysis identifies consumers that may need coordinated changes."
+      "Representation checks can pass even when changed meaning breaks downstream assumptions.",
+      "A definition comparison helps understand the change but does not identify affected consumers.",
+      "Successful execution does not demonstrate continued semantic compatibility.",
+      "Forward impact analysis identifies the dependencies requiring assessment and coordinated changes."
     ],
     "sources": [
       {
@@ -1423,6 +1613,11 @@ registerCourse(Object.assign({}, CDMPConfig.pilot, { questions: [
     "difficulty": "uncalibrated",
     "reviewStatus": "draft-author-checked",
     "verificationDate": "2026-09-24",
-    "editionBasis": "2017; revised-edition completeness not certified"
+    "editionBasis": "2017; revised-edition completeness not certified",
+    "editorialReview": {
+      "date": "2026-09-24",
+      "method": "same-agent second pass; not independent or blind",
+      "status": "revised-draft"
+    }
   }
 ] }));

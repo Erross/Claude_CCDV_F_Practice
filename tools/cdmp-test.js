@@ -78,9 +78,43 @@ test('corrupt pilot timing, target and option permutation cannot resume',()=>{
  for(const mutate of [a=>{a.target=75;},a=>{a.durationMinutes=120;},a=>{a.questions[0].o=[0,0,1,2];}]){
  const bad=JSON.parse(JSON.stringify(original));mutate(bad);const r=boot({...snapshot,[active]:JSON.stringify(bad)});try{assert.equal(r.w.localStorage.getItem(active),null);}finally{r.close();}}
 });
+test('mixed shuffled answers score 24 of 40 and meet only the 60 percent threshold',()=>{
+ const c=boot();try{select(c,70);const saved=JSON.parse(c.w.localStorage.getItem(active));
+ for(let i=0;i<40;i++){
+  const rec=saved.questions[i],q=bank.questions[rec.i];
+  const originalAnswer=i<24?q.c[0]:(q.c[0]+1)%q.o.length;
+  const input=c.d.querySelectorAll('#options input')[rec.o.indexOf(originalAnswer)];
+  input.checked=true;input.dispatchEvent(new c.w.Event('change'));
+  if(i<39)c.d.getElementById('next-btn').click();
+ }
+ finish(c);
+ const result=JSON.parse(c.w.localStorage.getItem(history)).attempts[0];
+ assert.equal(result.correct,24);assert.equal(result.percentage,60);assert.equal(result.pass,false);
+ assert.equal(c.d.getElementById('pass-badge').textContent,'Below target');
+ assert.match(c.d.getElementById('threshold-detail').textContent,/60%: met \| 70%: not met \| 80%: not met/);
+ }finally{c.close();}
+});
+test('edited bank rejects an old attempt and excludes old-version history from comparisons',()=>{
+ const c=boot();select(c);const snapshot=c.snapshot();finish(c);
+ const completed=JSON.parse(c.w.localStorage.getItem(history));c.close();
+ const previous=JSON.parse(JSON.stringify(bank));previous.questions[0].o[0]+=' previous wording';
+ const previousFingerprint=E.bankFingerprint(previous);assert.notEqual(previousFingerprint,E.bankFingerprint(bank));
+ const attempt=JSON.parse(snapshot[active]);attempt.fingerprint=previousFingerprint;
+ completed.attempts[0].contentVersion=previousFingerprint;
+ const r=boot({[active]:JSON.stringify(attempt),[history]:JSON.stringify(completed)});
+ try{
+  assert.equal(r.d.getElementById('resume-go').classList.contains('hidden'),true);
+  r.d.getElementById('resume-go').click();
+  assert.equal(r.d.getElementById('exam-screen').hidden,true);
+  r.d.querySelector('.course-card:not(:disabled)').click();
+  assert.equal(r.d.querySelectorAll('#history-body tbody tr').length,0);
+  assert.equal(JSON.parse(r.w.localStorage.getItem(history)).attempts.length,1);
+ }finally{r.close();}
+});
 test('production build excludes all pilot content and has no preview activation',()=>{
  const {buildSite}=require('./build');const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'cdmp-gate-'));
  try{const r=buildSite(path.join(tmp,'site'));assert.equal(fs.existsSync(path.join(r.outDir,'cdmp')),false);assert.doesNotMatch(fs.readFileSync(path.join(r.outDir,'index.html'),'utf8'),/cdmp\/questions|CDMPConfig/);}finally{fs.rmSync(tmp,{recursive:true,force:true});}
 });
 const longest=bank.questions.filter(q=>q.o[q.c[0]].length>Math.max(...q.o.filter((_,i)=>i!==q.c[0]).map(o=>o.length))).length;
-console.log(`\nCDMP: ${passed} checks passed. Draft editorial metric: correct answer uniquely longest in ${longest}/40 items. Independent semantic review is still required.`);
+const shortest=bank.questions.filter(q=>q.o[q.c[0]].length<Math.min(...q.o.filter((_,i)=>i!==q.c[0]).map(o=>o.length))).length;
+console.log(`\nCDMP: ${passed} checks passed. Draft editorial metrics: correct answer uniquely longest in ${longest}/40 and shortest in ${shortest}/40 items. These are diagnostics, not calibration. Independent semantic review is still required.`);

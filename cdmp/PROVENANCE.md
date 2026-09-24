@@ -1,6 +1,6 @@
 # CDMP pilot provenance
 
-**Draft version:** 0.1.0  
+**Draft version:** 0.1.1
 **Authoring date:** 2026-09-24  
 **Status:** Draft calibration content. Not released.
 
@@ -33,6 +33,7 @@ The 2017 PDF is not the current Revised Edition. The public revision summary ide
 - Each item stores a topic, subtopic, source locator, edition basis, verification date and draft review status.
 - Each item contains original wording and option-specific rationale text. No official exam question or copied book passage is included.
 - The pilot is explicitly marked as unofficial, draft and uncalibrated.
+- A same-agent editorial second pass is recorded in `REVIEW.md` and each item's `editorialReview`. This is not independent review or empirical difficulty calibration.
 
 ## Required before release
 

@@ -24,6 +24,6 @@
     domains:domains.map(function(d){ return Object.assign({}, d, { examCount:pilotCounts[d.id] }); }),
     blurb:'40 original draft questions. Review content and behavior before full bank expansion.',
     practiceNote:'Pilot only: all 40 questions repeat on retakes. Topic counts are rounded from the official weights. The 36/44-minute limits scale the 90/110-minute full-exam pace; they are our practice settings. Questions use four single-answer options pending independent format calibration. You may consult your own reference. Detailed feedback appears after submission.' });
-  global.CDMPConfig = { full:full, pilot:pilot, version:'0.1.0-draft', sourceChecked:'2026-09-24' };
+  global.CDMPConfig = { full:full, pilot:pilot, version:'0.1.1-draft', sourceChecked:'2026-09-24' };
   if (typeof module !== 'undefined' && module.exports) module.exports = global.CDMPConfig;
 })(typeof window !== 'undefined' ? window : globalThis);
