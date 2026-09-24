@@ -9,6 +9,8 @@
 
   var state = {
     course: null,
+    target: null,
+    durationMinutes: null,
     examQuestions: [],
     scenarioById: {},
     current: 0,
@@ -66,6 +68,14 @@
     return d ? d.name : id;
   }
   function colorFor(id){ return window.domainColor(state.course, id); }
+  function isPercent(c){ return c.scoring === "percentage"; }
+  function resultValue(a){ return a.percentage != null ? a.percentage : a.scaled; }
+  function validMinutes(c, n){ return n === c.minutes || (c.eslMinutes != null && n === c.eslMinutes); }
+  function domainTargetsForCourse(c, total){
+    var explicit = c.domains.every(function(d){ return Number.isInteger(d.examCount); });
+    var sum = explicit ? c.domains.reduce(function(n, d){ return n + d.examCount; }, 0) : -1;
+    return explicit && sum === total ? Object.fromEntries(c.domains.map(function(d){ return [d.id, d.examCount]; })) : E.domainTargets(c, total);
+  }
   function announce(msg){
     var el = $("live-region");
     if (el) el.textContent = msg;
@@ -87,6 +97,8 @@
       options: order.map(function(i){ return orig.o[i]; }),
       correct: orig.c.map(function(ci){ return order.indexOf(ci); }).sort(function(a,b){ return a-b; }),
       explanation: orig.e,
+      rationales: orig.rationales ? order.map(function(i){ return orig.rationales[i]; }) : null,
+      sources: orig.sources || [],
       userAnswer: [],
       flagged: false,
       struck: {}
@@ -109,6 +121,8 @@
         schema: SCHEMA,
         code: state.course.code,
         fingerprint: E.bankFingerprint(state.course),
+        target: state.target,
+        durationMinutes: state.durationMinutes,
         deadline: state.deadline,
         startedAt: state.startedAt,
         current: state.current,
@@ -158,7 +172,11 @@
 
   function historyFor(code){
     return readHistory().attempts
-      .filter(function(a){ return a.code === code; })
+      .filter(function(a){
+        if (a.code !== code) return false;
+        var c = window.getCourse(code);
+        return !isPercent(c) || (a.durationMinutes === state.durationMinutes && a.contentVersion === E.bankFingerprint(c));
+      })
       .sort(function(a, b){ return b.at - a.at; });
   }
 
@@ -202,15 +220,20 @@
     }
     var total = int(a.total, course.items, course.items);
     var correct = total === null ? null : int(a.correct, 0, total);
-    var scaled = int(a.scaled, 0, 1000);
-    var seconds = int(a.seconds, 0, course.minutes * 60);
-    if (total === null || correct === null || scaled === null || seconds === null || typeof a.pass !== "boolean") return null;
-    var expectedScaled = Math.round(100 + (correct / total) * 900);
-    if (scaled !== expectedScaled || a.pass !== (scaled >= course.passScore)) return null;
+    var target = isPercent(course) ? a.target : course.passScore;
+    var minutes = isPercent(course) ? a.durationMinutes : course.minutes;
+    if (!validMinutes(course, minutes) || (isPercent(course) && ![60,70,80].includes(target))) return null;
+    var seconds = int(a.seconds, 0, minutes * 60);
+    if (total === null || correct === null || seconds === null || typeof a.pass !== "boolean") return null;
+    var result = E.scoreAttempt(course, correct, total, target);
+    if (a.pass !== result.passed) return null;
+    if (isPercent(course) ? a.percentage !== result.value : a.scaled !== result.value) return null;
+    if (isPercent(course) && (typeof a.contentVersion !== "string" || a.contentVersion.length > 160)) return null;
+    var scaled = isPercent(course) ? undefined : result.value;
 
     var domains = {};
     var validDomains = !!a.domains && typeof a.domains === "object" && !Array.isArray(a.domains);
-    var expectedDomains = E.domainTargets(course, total);
+    var expectedDomains = domainTargetsForCourse(course, total);
     var domainCorrect = 0, domainTotal = 0;
     if (validDomains){
       course.domains.forEach(function(d){
@@ -227,7 +250,8 @@
     if (!validDomains || domainCorrect !== correct || domainTotal !== total) return null;
     return {
       code: course.code, at: at, correct: correct, total: total,
-      scaled: scaled, pass: a.pass,
+      scaled: scaled, percentage: isPercent(course) ? result.value : undefined, pass: a.pass,
+      target: target, durationMinutes: minutes, contentVersion: isPercent(course) ? a.contentVersion : undefined,
       seconds: seconds, domains: domains
     };
   }
@@ -273,7 +297,10 @@
     if (!Number.isInteger(data.current) || data.current < 0 || data.current >= data.questions.length) return false;
     if (typeof data.startedAt !== "number" || !isFinite(data.startedAt) || data.startedAt <= 0 || data.startedAt > data.deadline) return false;
 
-    if (data.deadline - data.startedAt > course.minutes * 60 * 1000 + 1000) return false;
+    var minutes = isPercent(course) ? data.durationMinutes : course.minutes;
+    if (!validMinutes(course, minutes)) return false;
+    if (isPercent(course) && ![60,70,80].includes(data.target)) return false;
+    if (data.deadline - data.startedAt > minutes * 60 * 1000 + 1000) return false;
 
     var seen = Object.create(null), domainTally = {}, scenarioTally = {};
     for (var r = 0; r < data.questions.length; r++){
@@ -291,7 +318,7 @@
       if (orig.sc) scenarioTally[orig.sc] = (scenarioTally[orig.sc] || 0) + 1;
     }
 
-    var targets = E.domainTargets(course, course.items);
+    var targets = domainTargetsForCourse(course, course.items);
     if (course.domains.some(function(d){ return (domainTally[d.id] || 0) !== targets[d.id]; })) return false;
     if (E.isScenarioCourse(course)){
       var chosen = Object.keys(scenarioTally);
@@ -325,6 +352,8 @@
   function resumeAttempt(saved){
     try {
       state.course = saved.course;
+      state.target = saved.data.target || saved.course.passScore;
+      state.durationMinutes = saved.data.durationMinutes || saved.course.minutes;
       indexScenarios();
       state.examQuestions = saved.data.questions.map(function(rec){
         var q = prepareFromIndex(rec.i, rec.o);
@@ -388,6 +417,8 @@
     var course = window.getCourse(code);
     if (!window.isCourseAvailable(course)) return;
     state.course = course;
+    state.target = course.passScore;
+    state.durationMinutes = course.minutes;
     indexScenarios();
     renderSplash();
     showScreen("splash-screen", "splash-title");
@@ -404,7 +435,18 @@
     $("stat-time").textContent = "";
     $("stat-time").appendChild(document.createTextNode(c.minutes));
     $("stat-time").appendChild(el("span", "unit", "m"));
-    $("stat-pass").textContent = c.passScore;
+    $("stat-pass").textContent = isPercent(c) ? state.target + "%" : c.passScore;
+    $("stat-pass-label").textContent = isPercent(c) ? "Practice target" : "Approx. pass score";
+    $("exam-settings").classList.toggle("hidden", !isPercent(c));
+    if (isPercent(c)) {
+      $("score-target").value = String(state.target);
+      $("timing-mode").value = state.durationMinutes === c.eslMinutes ? "esl" : "standard";
+      $("stat-time").textContent = state.durationMinutes + "m";
+      $("score-target").onchange = function(){ state.target = Number(this.value); renderSplash(); };
+      $("timing-mode").onchange = function(){ state.durationMinutes = this.value === "esl" ? c.eslMinutes : c.minutes; renderSplash(); };
+      $("splash-title").textContent = c.name + " - " + c.tier;
+      $("splash-sub").textContent = c.items + " original draft questions across 14 topics. " + state.durationMinutes + " minutes at the selected pace. All pilot questions repeat on retakes.";
+    }
     $("stat-bank").textContent = c.questions.length;
 
     var note = $("format-note");
@@ -414,7 +456,7 @@
         c.scenarioDraw.perScenario + " questions on each. The draw is balanced by domain " +
         "so each attempt still matches the published weights.";
       note.classList.remove("hidden");
-    } else note.classList.add("hidden");
+    } else if (c.practiceNote) { note.textContent = c.practiceNote; note.classList.remove("hidden"); } else note.classList.add("hidden");
 
     var bar = $("weight-bar"), legend = $("weight-legend");
     bar.innerHTML = ""; legend.innerHTML = "";
@@ -441,6 +483,7 @@
   function renderHistory(){
     var c = state.course;
     var list = historyFor(c.code);
+    $("history-heading").textContent = isPercent(c) ? "Attempts with this timing and bank version" : "Your attempts on this device";
     var panel = $("history-panel");
     var body = $("history-body");
     body.innerHTML = "";
@@ -452,18 +495,18 @@
       return;
     }
 
-    var best = list.reduce(function(m, a){ return a.scaled > m.scaled ? a : m; }, list[0]);
-    var avg = Math.round(list.reduce(function(s2, a){ return s2 + a.scaled; }, 0) / list.length);
+    var best = list.reduce(function(m, a){ return resultValue(a) > resultValue(m) ? a : m; }, list[0]);
+    var avg = Math.round(list.reduce(function(s2, a){ return s2 + resultValue(a); }, 0) / list.length);
     var passes = list.filter(function(a){ return a.pass; }).length;
     $("history-stats").textContent =
       list.length + " attempt" + (list.length === 1 ? "" : "s") +
-      " · best " + best.scaled + " · average " + avg + " · " + passes + " above the pass mark";
+      " · best " + resultValue(best) + (isPercent(c) ? "%" : "") + " · average " + avg + (isPercent(c) ? "%" : "") + " · " + passes + (isPercent(c) ? " meeting their selected target" : " above the pass mark");
 
     var table = document.createElement("table");
     table.className = "history-table";
     var thead = document.createElement("thead");
     var hr = document.createElement("tr");
-    ["When","Score","Scaled","Time","Result"].forEach(function(h){
+    ["When","Score",isPercent(c) ? "Percent" : "Scaled","Time","Result"].forEach(function(h){
       var th = document.createElement("th");
       th.scope = "col"; th.textContent = h; hr.appendChild(th);
     });
@@ -482,14 +525,14 @@
       }
       cell("When", fmtDate(a.at));
       cell("Score", a.correct + " / " + a.total, true);
-      cell("Scaled", String(a.scaled), true);
+      cell(isPercent(c) ? "Percent" : "Scaled", String(resultValue(a)) + (isPercent(c) ? "%" : ""), true);
       cell("Time", fmtTime(a.seconds || 0), true);
       var td = document.createElement("td");
       td.setAttribute("data-label", "Result");
       var badge = document.createElement("span");
       badge.className = "badge-sm " + (a.pass ? "pass" : "fail");
       // Matches the results screen: the scaled score is an approximation.
-      badge.textContent = a.pass ? "Likely pass" : "Likely fail";
+      badge.textContent = isPercent(c) ? (a.pass ? "Target met" : "Below target") + " (" + a.target + "%, " + a.durationMinutes + "m)" : (a.pass ? "Likely pass" : "Likely fail");
       td.appendChild(badge); tr.appendChild(td);
       tb.appendChild(tr);
     });
@@ -527,9 +570,9 @@
   // ---------- exam lifecycle ----------
   function startExam(){
     if (!window.isCourseAvailable(state.course)) return;
-    state.examQuestions = buildAttempt();
+    try { state.examQuestions = buildAttempt(); } catch(e) { announce("Cannot start: " + e.message); return; }
     state.current = 0;
-    state.deadline = Date.now() + state.course.minutes * 60 * 1000;
+    state.deadline = Date.now() + state.durationMinutes * 60 * 1000;
     state.startedAt = Date.now();
     state.submitted = false;
     saveAttempt();
@@ -863,23 +906,29 @@
     });
 
     var pct = Math.round((correctCount/total)*100);
-    var scaled = Math.round(100 + (correctCount/total) * 900);
-    var pass = scaled >= c.passScore;
+    var result = E.scoreAttempt(c, correctCount, total, state.target);
+    var scaled = result.value;
+    var pass = result.passed;
 
-    $("score-pct").textContent = pct + "%";
+    $("score-pct").textContent = (isPercent(c) ? Number(result.percent.toFixed(1)) : pct) + "%";
     $("score-detail").textContent =
       correctCount + " / " + total + " correct · approx. scaled score " + scaled +
       " / 1000 (" + c.passScore + " to pass)";
     var badge = $("pass-badge");
-    badge.textContent = pass ? "Likely pass" : "Likely fail";
+    badge.textContent = isPercent(c) ? (pass ? "Target met" : "Below target") : (pass ? "Likely pass" : "Likely fail");
+    $("threshold-detail").classList.toggle("hidden", !isPercent(c));
+    if (isPercent(c)) {
+      $("score-detail").textContent = correctCount + " / " + total + " correct - target " + state.target + "% - " + state.durationMinutes + " minute setting";
+      $("threshold-detail").textContent = result.thresholds.map(function(t){ return t.target + "%: " + (t.met ? "met" : "not met"); }).join(" | ") + ". Draft pilot results are not a certification or a prediction of exam success. Practitioner and Master require specialist exams; Master also requires an experience assessment. Small domain samples are indicative only.";
+    }
     badge.className = "badge " + (pass ? "pass" : "fail");
 
     // Compare against history before this attempt is written into it.
     var prior = historyFor(c.code);
     var cmp = $("score-compare");
     if (prior.length){
-      var bestBefore = Math.max.apply(null, prior.map(function(a){ return a.scaled; }));
-      var avgBefore = Math.round(prior.reduce(function(s2, a){ return s2 + a.scaled; }, 0) / prior.length);
+      var bestBefore = Math.max.apply(null, prior.map(function(a){ return resultValue(a); }));
+      var avgBefore = Math.round(prior.reduce(function(s2, a){ return s2 + resultValue(a); }, 0) / prior.length);
       var delta = scaled - avgBefore;
       cmp.textContent =
         "Attempt " + (prior.length + 1) + " on this device · " +
@@ -903,10 +952,14 @@
       at: Date.now(),
       correct: correctCount,
       total: total,
-      scaled: scaled,
+      scaled: isPercent(c) ? undefined : scaled,
+      percentage: isPercent(c) ? scaled : undefined,
+      contentVersion: isPercent(c) ? E.bankFingerprint(c) : undefined,
+      target: state.target,
+      durationMinutes: state.durationMinutes,
       pass: pass,
       seconds: state.startedAt
-        ? Math.max(0, Math.min(c.minutes * 60, Math.round((Date.now() - state.startedAt) / 1000)))
+        ? Math.max(0, Math.min(state.durationMinutes * 60, Math.round((Date.now() - state.startedAt) / 1000)))
         : 0,
       domains: domainRec
     });
@@ -1012,6 +1065,19 @@
         partial +
         '<div class="exp">' + escapeHtml(q.explanation) + '</div>';
 
+      if (q.rationales) {
+        var explanations = el("ul", "option-rationales");
+        q.options.forEach(function(option, i){ explanations.appendChild(el("li", null, option + ": " + q.rationales[i])); });
+        body.appendChild(explanations);
+        body.appendChild(el("p", "source-note", "Draft item - independent content review pending."));
+        q.sources.forEach(function(source){
+          var p = el("p", "source-note", source.locator + " - ");
+          if (/^https:\/\//.test(source.url)) {
+            var link = el("a", null, source.title); link.href = source.url; link.target = "_blank"; link.rel = "noopener noreferrer"; p.appendChild(link);
+          }
+          body.appendChild(p);
+        });
+      }
       head.addEventListener("click", function(){
         var open = body.classList.toggle("hidden");
         head.setAttribute("aria-expanded", open ? "false" : "true");

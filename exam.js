@@ -25,7 +25,7 @@
   function domainTargets(course, total) {
     var parts = course.domains.map(function (d) {
       var exact = total * d.weight / 100;
-      return { id: d.id, n: Math.floor(exact), rem: exact - Math.floor(exact) };
+      return { id: d.id, n: Math.floor(exact), rem: Math.round((exact - Math.floor(exact)) * 1e9) / 1e9 };
     });
     var short = total - parts.reduce(function (s, p) { return s + p.n; }, 0);
     parts.slice().sort(function (a, b) { return b.rem - a.rem; })
@@ -138,11 +138,31 @@
   function drawWeighted(course) {
     var out = [];
     course.domains.forEach(function (dom) {
-      out = out.concat(pickN(course.questions.filter(function (q) {
+      var pool = course.questions.filter(function (q) {
         return q.d === dom.id;
-      }), dom.examCount));
+      });
+      if (!Number.isInteger(dom.examCount) || dom.examCount < 0 || pool.length < dom.examCount) {
+        throw new Error("Question bank cannot satisfy domain quota: " + dom.id);
+      }
+      out = out.concat(pickN(pool, dom.examCount));
     });
+    if (out.length !== course.items) throw new Error("Domain quotas do not sum to the exam length");
     return shuffle(out);
+  }
+
+  function scoreAttempt(course, correct, total, target) {
+    if (!Number.isInteger(total) || total <= 0 || !Number.isInteger(correct) || correct < 0 || correct > total) {
+      throw new Error("Invalid score counts");
+    }
+    var percent = 100 * correct / total;
+    if (course.scoring === "percentage") {
+      target = target == null ? course.passScore : target;
+      if (![60, 70, 80].includes(target)) throw new Error("Invalid CDMP target");
+      return { value: percent, percent: percent, passed: correct * 100 >= total * target,
+        target: target, thresholds: [60,70,80].map(function(n){ return { target:n, met: correct * 100 >= total * n }; }) };
+    }
+    var value = Math.round(100 + (correct / total) * 900);
+    return { value: value, percent: percent, passed: value >= course.passScore, target: course.passScore };
   }
 
   // Returns the raw bank questions for this attempt, in presentation order.
@@ -172,6 +192,7 @@
   }
 
   var api = {
+    scoreAttempt: scoreAttempt,
     allocate: allocate,
     shuffle: shuffle,
     pickN: pickN,
